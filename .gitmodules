@@ -1,3 +1,6 @@
 [submodule "lwip/lwip"]
 	path = lwip/lwip
 	url = https://github.com/lwip-tcpip/lwip.git
+[submodule "core/lwip"]
+	path = core/lwip
+	url = https://github.com/lwip-tcpip/lwip.git
