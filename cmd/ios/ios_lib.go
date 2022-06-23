@@ -1,4 +1,4 @@
-package ios
+package tun2Simple
 
 import (
 	"github.com/lightStarShip/go-tun2simple/stack"

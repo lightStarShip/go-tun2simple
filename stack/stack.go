@@ -14,7 +14,7 @@ type DeviceI interface {
 }
 
 func SetupAgent(di DeviceI) (*Agent, error) {
-	lwipStack := core.NewLWIPStack()
+	lwipStack := core.Inst()
 	a := &Agent{
 		lwipStack: lwipStack,
 	}
