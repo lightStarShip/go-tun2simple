@@ -18,26 +18,12 @@ import (
 // https://golang.org/cmd/cgo/#hdr-C_references_to_Go
 
 //export tcpAcceptFn
-func tcpAcceptFn(arg unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.err_t {
+func tcpAcceptFn(_ unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.err_t {
 	if err != C.ERR_OK {
 		return err
 	}
 
-	if tcpConnHandler == nil {
-		panic("must register a TCP connection handler")
-	}
-
-	if _, nerr := newTCPConn(newpcb, tcpConnHandler); nerr != nil {
-		switch nerr.(*lwipError).Code {
-		case LWIP_ERR_ABRT:
-			return C.ERR_ABRT
-		case LWIP_ERR_OK:
-			return C.ERR_OK
-		default:
-			return C.ERR_CONN
-		}
-	}
-
+	stackInst.tcpConnChan <- newTCPConn(newpcb)
 	return C.ERR_OK
 }
 
@@ -56,16 +42,11 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		}
 	}()
 
-	conn, ok := tcpConns.Load(getConnKeyVal(arg))
-	if !ok {
-		// The connection does not exists.
-		C.tcp_abort(tpcb)
-		return C.ERR_ABRT
-	}
+	conn := (*tcpConn)(arg)
 
 	if p == nil {
 		// Peer closed, EOF.
-		err := conn.(TCPConn).LocalClosed()
+		err := conn.LocalClosed()
 		switch err.(*lwipError).Code {
 		case LWIP_ERR_ABRT:
 			return C.ERR_ABRT
@@ -86,7 +67,7 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
 	}
 
-	rerr := conn.(TCPConn).Receive(buf[:totlen])
+	rerr := conn.Receive(buf[:totlen])
 	if rerr != nil {
 		switch rerr.(*lwipError).Code {
 		case LWIP_ERR_ABRT:
@@ -113,53 +94,46 @@ func tcpRecvFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, p *C.struct_pbuf, err
 }
 
 //export tcpSentFn
-func tcpSentFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb, len C.u16_t) C.err_t {
-	if conn, ok := tcpConns.Load(getConnKeyVal(arg)); ok {
-		err := conn.(TCPConn).Sent(uint16(len))
-		switch err.(*lwipError).Code {
-		case LWIP_ERR_ABRT:
-			return C.ERR_ABRT
-		case LWIP_ERR_OK:
-			return C.ERR_OK
-		default:
-			panic("unexpected error")
-		}
-	} else {
-		C.tcp_abort(tpcb)
+func tcpSentFn(arg unsafe.Pointer, _ *C.struct_tcp_pcb, len C.u16_t) C.err_t {
+
+	conn := (*tcpConn)(arg)
+	err := conn.Sent(uint16(len))
+	switch err.(*lwipError).Code {
+	case LWIP_ERR_ABRT:
 		return C.ERR_ABRT
+	case LWIP_ERR_OK:
+		return C.ERR_OK
+	default:
+		panic("unexpected error")
 	}
 }
 
 //export tcpErrFn
 func tcpErrFn(arg unsafe.Pointer, err C.err_t) {
-	if conn, ok := tcpConns.Load(getConnKeyVal(arg)); ok {
-		switch err {
-		case C.ERR_ABRT:
-			// Aborted through tcp_abort or by a TCP timer
-			conn.(TCPConn).Err(errors.New("connection aborted"))
-		case C.ERR_RST:
-			// The connection was reset by the remote host
-			conn.(TCPConn).Err(errors.New("connection reseted"))
-		default:
-			conn.(TCPConn).Err(errors.New(fmt.Sprintf("lwip error code %v", int(err))))
-		}
+	conn := (*tcpConn)(arg)
+	switch err {
+	case C.ERR_ABRT:
+		// Aborted through tcp_abort or by a TCP timer
+		conn.Err(errors.New("connection aborted"))
+	case C.ERR_RST:
+		// The connection was reset by the remote host
+		conn.Err(errors.New("connection reseted"))
+	default:
+		conn.Err(errors.New(fmt.Sprintf("lwip error code %v", int(err))))
 	}
 }
 
 //export tcpPollFn
-func tcpPollFn(arg unsafe.Pointer, tpcb *C.struct_tcp_pcb) C.err_t {
-	if conn, ok := tcpConns.Load(getConnKeyVal(arg)); ok {
-		err := conn.(TCPConn).Poll()
-		switch err.(*lwipError).Code {
-		case LWIP_ERR_ABRT:
-			return C.ERR_ABRT
-		case LWIP_ERR_OK:
-			return C.ERR_OK
-		default:
-			panic("unexpected error")
-		}
-	} else {
-		C.tcp_abort(tpcb)
+func tcpPollFn(arg unsafe.Pointer, _ *C.struct_tcp_pcb) C.err_t {
+	conn := (*tcpConn)(arg)
+	err := conn.Poll()
+	switch err.(*lwipError).Code {
+	case LWIP_ERR_ABRT:
 		return C.ERR_ABRT
+	case LWIP_ERR_OK:
+		return C.ERR_OK
+	default:
+		panic("unexpected error")
 	}
+
 }

@@ -10,7 +10,7 @@ import (
 )
 
 //export udpRecvFn
-func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *C.ip_addr_t, port C.u16_t, destAddr *C.ip_addr_t, destPort C.u16_t) {
+func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *C.ip_addr_t, port C.u16_t, destAddr *C.ip_addr_t, destPort C.u16_t) {
 	defer func() {
 		if p != nil {
 			C.pbuf_free(p)
@@ -26,18 +26,12 @@ func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 	if srcAddr == nil || dstAddr == nil {
 		panic("invalid UDP address")
 	}
-
-	connId := udpConnId{
-		src: srcAddr.String(),
-	}
-	conn, found := udpConns.Load(connId)
+	connId := srcAddr.String()
+	conn, found := stackInst.udpConnMap.Load(connId)
 	if !found {
-		if udpConnHandler == nil {
-			panic("must register a UDP connection handler")
-		}
+
 		var err error
 		conn, err = newUDPConn(pcb,
-			udpConnHandler,
 			*addr,
 			port,
 			srcAddr,
@@ -45,7 +39,7 @@ func udpRecvFn(arg unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr
 		if err != nil {
 			return
 		}
-		udpConns.Store(connId, conn)
+		stackInst.udpConnMap.Store(connId, conn)
 	}
 
 	var buf []byte

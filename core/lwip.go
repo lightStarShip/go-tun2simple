@@ -10,19 +10,12 @@ import "C"
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"sync"
 	"time"
 	"unsafe"
 )
-
-const CHECK_TIMEOUTS_INTERVAL = 250 // in millisecond
-const TCP_POLL_INTERVAL = 8         // poll every 4 seconds
-
-type LWIPStack interface {
-	InputIpPackets([]byte) (int, error)
-	Close() error
-	RestartTimeouts()
-}
 
 // lwIP runs in a single thread, locking is needed in Go runtime.
 var lwipMutex = &sync.Mutex{}
@@ -31,15 +24,16 @@ type lwipStack struct {
 	tpcb *C.struct_tcp_pcb
 	upcb *C.struct_udp_pcb
 
-	ctx      context.Context
-	cancel   context.CancelFunc
-	tcpConns sync.Map
-	udpConns sync.Map
+	ctx         context.Context
+	cancel      context.CancelFunc
+	tcpConnChan chan net.Conn
+	udpConnMap  sync.Map
 }
 
-// NewLWIPStack listens for any incoming connections/packets and registers
+// newLWIPStack listens for any incoming connections/packets and registers
 // corresponding accept/recv callback functions.
-func NewLWIPStack() LWIPStack {
+
+func newLWIPStack() *lwipStack {
 	tcpPCB := C.tcp_new()
 	if tcpPCB == nil {
 		panic("tcp_new return nil")
@@ -93,10 +87,11 @@ func NewLWIPStack() LWIPStack {
 	}()
 
 	return &lwipStack{
-		tpcb:   tcpPCB,
-		upcb:   udpPCB,
-		ctx:    ctx,
-		cancel: cancel,
+		tpcb:        tcpPCB,
+		upcb:        udpPCB,
+		ctx:         ctx,
+		cancel:      cancel,
+		tcpConnChan: make(chan net.Conn, 1024), //TODO::1024
 	}
 }
 
@@ -129,20 +124,6 @@ func (s *lwipStack) Close() error {
 	// Stop firing timer events.
 	s.cancel()
 
-	// Abort and close all TCP and UDP connections.
-	s.tcpConns.Range(func(_, c interface{}) bool {
-		c.(*tcpConn).Abort()
-		return true
-	})
-	s.udpConns.Range(func(_, c interface{}) bool {
-		// This only closes UDP connections in the core,
-		// UDP connections in the handler will wait till
-		// timeout, they are not closed immediately for
-		// now.
-		c.(*udpConn).Close()
-		return true
-	})
-
 	// Remove callbacks and close listening pcbs.
 	lwipMutex.Lock()
 	C.tcp_accept(s.tpcb, nil)
@@ -154,18 +135,13 @@ func (s *lwipStack) Close() error {
 	return nil
 }
 
-func init() {
-	// Initialize lwIP.
-	//
-	// There is a little trick here, a loop interface (127.0.0.1)
-	// is created in the initialization stage due to the option
-	// `#define LWIP_HAVE_LOOPIF 1` in `lwipopts.h`, so we need
-	// not create our own interface.
-	//
-	// Now the loop interface is just the first element in
-	// `C.netif_list`, i.e. `*C.netif_list`.
-	lwipInit()
-
-	// Set MTU.
-	C.netif_list.mtu = 1500
+func (s *lwipStack) Accept() (net.Conn, error) {
+	c, ok := <-s.tcpConnChan
+	if !ok {
+		return nil, fmt.Errorf("channel closed")
+	}
+	return c, nil
+}
+func (s *lwipStack) receiveTo(conn UDPConn, data []byte, addr *net.UDPAddr) error {
+	return nil
 }
