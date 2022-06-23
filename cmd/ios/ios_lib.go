@@ -1,6 +1,7 @@
-package tun
+package ios
 
 import (
+	"github.com/lightStarShip/go-tun2simple/stack"
 	"runtime/debug"
 	"time"
 )
@@ -17,14 +18,13 @@ func init() {
 	}()
 }
 
-type StackAgent struct {
-	lwipStack core.LWIPStack
-}
-type DeviceI interface {
-	ReadIPPacketsFromStack(p []byte) (n int, err error)
-	WriteIPPacketsToStack(data []byte) (int, error)
-}
+var _inst *stack.Agent = nil
 
-func SetupTun(di DeviceI) {
-
+func InitApp(dev stack.DeviceI) error {
+	i, err := stack.SetupAgent(dev)
+	if err != nil {
+		return err
+	}
+	_inst = i
+	return nil
 }

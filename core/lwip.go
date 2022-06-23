@@ -19,7 +19,7 @@ const CHECK_TIMEOUTS_INTERVAL = 250 // in millisecond
 const TCP_POLL_INTERVAL = 8         // poll every 4 seconds
 
 type LWIPStack interface {
-	Write([]byte) (int, error)
+	InputIpPackets([]byte) (int, error)
 	Close() error
 	RestartTimeouts()
 }
@@ -31,8 +31,10 @@ type lwipStack struct {
 	tpcb *C.struct_tcp_pcb
 	upcb *C.struct_udp_pcb
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	ctx      context.Context
+	cancel   context.CancelFunc
+	tcpConns sync.Map
+	udpConns sync.Map
 }
 
 // NewLWIPStack listens for any incoming connections/packets and registers
@@ -98,8 +100,7 @@ func NewLWIPStack() LWIPStack {
 	}
 }
 
-// Write writes IP packets to the stack.
-func (s *lwipStack) Write(data []byte) (int, error) {
+func (s *lwipStack) InputIpPackets(data []byte) (int, error) {
 	select {
 	case <-s.ctx.Done():
 		return 0, errors.New("stack closed")
@@ -129,11 +130,11 @@ func (s *lwipStack) Close() error {
 	s.cancel()
 
 	// Abort and close all TCP and UDP connections.
-	tcpConns.Range(func(_, c interface{}) bool {
+	s.tcpConns.Range(func(_, c interface{}) bool {
 		c.(*tcpConn).Abort()
 		return true
 	})
-	udpConns.Range(func(_, c interface{}) bool {
+	s.udpConns.Range(func(_, c interface{}) bool {
 		// This only closes UDP connections in the core,
 		// UDP connections in the handler will wait till
 		// timeout, they are not closed immediately for
