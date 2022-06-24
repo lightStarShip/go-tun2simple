@@ -16,7 +16,7 @@ test:
 a:
 	gomobile bind -v -o $(BINDIR)/tun2Simple.aar -target=android/arm,android/arm64 -ldflags=-s github.com/lightStarShip/go-tun2simple/cmd/android
 i:
-	gomobile bind -v -o $(BINDIR)/tun2Simple.xcframework -target=ios  -ldflags="-w" -ldflags=-s github.com/lightStarShip/go-tun2simple/cmd/ios
+	gomobile bind -v -o $(BINDIR)/tun2Simple.xcframework -target=ios -ldflags="-s -w" github.com/lightStarShip/go-tun2simple/cmd/ios
 
 clean:
 	gomobile clean
