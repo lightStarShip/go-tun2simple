@@ -140,7 +140,7 @@ func (conn *udpConn) WriteFrom(data []byte, addr *net.UDPAddr) (int, error) {
 	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
 	defer C.pbuf_free(buf)
-	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &cremoteIP, C.u16_t(addr.Port))
+	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort)
 	return len(data), nil
 }
 
