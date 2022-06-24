@@ -10,7 +10,7 @@ import (
 )
 
 //export udpRecvFn
-func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *C.ip_addr_t, port C.u16_t, destAddr *C.ip_addr_t, destPort C.u16_t) {
+func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *C.ip_addr_t, port C.u16_t) {
 	defer func() {
 		if p != nil {
 			C.pbuf_free(p)
@@ -22,8 +22,7 @@ func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *
 	}
 
 	srcAddr := ParseUDPAddr(ipAddrNTOA(*addr), uint16(port))
-	dstAddr := ParseUDPAddr(ipAddrNTOA(*destAddr), uint16(destPort))
-	if srcAddr == nil || dstAddr == nil {
+	if srcAddr == nil {
 		panic("invalid UDP address")
 	}
 	connId := srcAddr.String()
@@ -34,8 +33,7 @@ func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *
 		conn, err = newUDPConn(pcb,
 			*addr,
 			port,
-			srcAddr,
-			dstAddr)
+			srcAddr)
 		if err != nil {
 			return
 		}
@@ -52,5 +50,5 @@ func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *
 		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0)
 	}
 
-	conn.(UDPConn).ReceiveTo(buf[:totlen], dstAddr)
+	conn.(UDPConn).ReceiveTo(buf[:totlen])
 }

@@ -37,7 +37,7 @@ type udpConn struct {
 	pending   chan *udpPacket
 }
 
-func newUDPConn(pcb *C.struct_udp_pcb, localIP C.ip_addr_t, localPort C.u16_t, localAddr, remoteAddr *net.UDPAddr) (UDPConn, error) {
+func newUDPConn(pcb *C.struct_udp_pcb, localIP C.ip_addr_t, localPort C.u16_t, localAddr *net.UDPAddr) (UDPConn, error) {
 	conn := &udpConn{
 		pcb:       pcb,
 		localAddr: localAddr,
@@ -97,11 +97,11 @@ func (conn *udpConn) checkState() error {
 
 // If the connection isn't ready yet, and there is room in the queue, make a copy
 // and hold onto it until the connection is ready.
-func (conn *udpConn) enqueueEarlyPacket(data []byte, addr *net.UDPAddr) bool {
+func (conn *udpConn) enqueueEarlyPacket(data []byte) bool {
 	conn.Lock()
 	defer conn.Unlock()
 	if conn.state == udpConnecting {
-		pkt := &udpPacket{data: append([]byte(nil), data...), addr: addr}
+		pkt := &udpPacket{data: append([]byte(nil), data...)}
 		select {
 		// Data will be dropped if pending is full.
 		case conn.pending <- pkt:
@@ -112,14 +112,14 @@ func (conn *udpConn) enqueueEarlyPacket(data []byte, addr *net.UDPAddr) bool {
 	return false
 }
 
-func (conn *udpConn) ReceiveTo(data []byte, addr *net.UDPAddr) error {
-	if conn.enqueueEarlyPacket(data, addr) {
+func (conn *udpConn) ReceiveTo(data []byte) error {
+	if conn.enqueueEarlyPacket(data) {
 		return nil
 	}
 	if err := conn.checkState(); err != nil {
 		return err
 	}
-	err := stackInst.receiveTo(conn, data, addr)
+	err := stackInst.receiveTo(conn, data)
 	if err != nil {
 		return errors.New(fmt.Sprintf("write proxy failed: %v", err))
 	}

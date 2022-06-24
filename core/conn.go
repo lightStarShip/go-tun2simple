@@ -71,7 +71,7 @@ type UDPConn interface {
 
 	// ReceiveTo will be called when data arrives from TUN, and the received
 	// data should be sent to addr.
-	ReceiveTo(data []byte, addr *net.UDPAddr) error
+	ReceiveTo(data []byte) error
 
 	// WriteFrom writes data to TUN, addr will be set as source address of
 	// UDP packets that output to TUN.

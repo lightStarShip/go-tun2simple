@@ -3,6 +3,7 @@ package core
 /*
 #cgo CFLAGS: -I./lwip/src/include
 #include "lwip/tcp.h"
+#include "lwip/priv/tcp_priv.h"
 */
 import "C"
 import (

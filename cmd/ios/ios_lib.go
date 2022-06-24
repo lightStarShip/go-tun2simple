@@ -28,3 +28,7 @@ func InitApp(dev stack.DeviceI) error {
 	_inst = i
 	return nil
 }
+
+func InputDevData(data []byte) (int, error) {
+	return _inst.ReceiveDevData(data)
+}

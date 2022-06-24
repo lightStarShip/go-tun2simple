@@ -21,3 +21,7 @@ func SetupAgent(di DeviceI) (*Agent, error) {
 
 	return a, nil
 }
+
+func (a *Agent) ReceiveDevData(data []byte) (int, error) {
+	return a.lwipStack.InputIpPackets(data)
+}
