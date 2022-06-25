@@ -142,8 +142,11 @@ func (s *lwipStack) Accept() (net.Conn, error) {
 	}
 	return c, nil
 }
+
 func (s *lwipStack) receiveTo(conn UDPConn, data []byte) error {
 	return nil
+}
+func (s *lwipStack) outputIPPackets([]byte) {
 }
 
 func init() {
