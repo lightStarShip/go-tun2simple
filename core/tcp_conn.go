@@ -112,6 +112,7 @@ func newTCPConn(pcb *C.struct_tcp_pcb) TCPConn {
 	lwipMutex.Unlock()
 	//	}
 	//}()
+	_console(detailDebug, "======>>> new connection create", conn.remoteAddr.String())
 	return conn
 }
 

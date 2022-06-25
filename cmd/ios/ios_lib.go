@@ -1,6 +1,7 @@
 package tun2Simple
 
 import (
+	"fmt"
 	"github.com/lightStarShip/go-tun2simple/stack"
 	"runtime/debug"
 	"time"
@@ -13,14 +14,19 @@ func init() {
 	ticker := time.NewTicker(time.Minute * 1)
 	go func() {
 		for range ticker.C {
+			fmt.Println("======>>> release memory for ios")
 			debug.FreeOSMemory()
 		}
 	}()
 }
 
+type DeviceI interface {
+	stack.DeviceI
+}
+
 var _inst *stack.Agent = nil
 
-func InitApp(dev stack.DeviceI) error {
+func InitApp(dev DeviceI) error {
 	i, err := stack.SetupAgent(dev)
 	if err != nil {
 		return err
@@ -30,5 +36,6 @@ func InitApp(dev stack.DeviceI) error {
 }
 
 func InputDevData(data []byte) (int, error) {
+	fmt.Println("======>>> input from dev to stack", len(data))
 	return _inst.ReceiveDevData(data)
 }

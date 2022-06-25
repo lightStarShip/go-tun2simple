@@ -152,7 +152,7 @@ func (s *lwipStack) outputIPPackets(data []byte) {
 	s.dataToDev <- data
 }
 
-func (s *lwipStack) ReadOutIpPackets() []byte {
+func (s *lwipStack) OutputIpPackets() []byte {
 	data, ok := <-s.dataToDev
 	if !ok {
 		return nil
