@@ -28,6 +28,7 @@ type lwipStack struct {
 	cancel      context.CancelFunc
 	tcpConnChan chan net.Conn
 	udpConnMap  sync.Map
+	dataToDev   chan []byte
 }
 
 // newLWIPStack listens for any incoming connections/packets and registers
@@ -92,6 +93,7 @@ func newLWIPStack() *lwipStack {
 		ctx:         ctx,
 		cancel:      cancel,
 		tcpConnChan: make(chan net.Conn, 1024), //TODO::1024
+		dataToDev:   make(chan []byte, 1024),   //TODO::1024
 	}
 }
 
@@ -146,9 +148,17 @@ func (s *lwipStack) Accept() (net.Conn, error) {
 func (s *lwipStack) receiveTo(conn UDPConn, data []byte) error {
 	return nil
 }
-func (s *lwipStack) outputIPPackets([]byte) {
+func (s *lwipStack) outputIPPackets(data []byte) {
+	s.dataToDev <- data
 }
 
+func (s *lwipStack) ReadOutIpPackets() []byte {
+	data, ok := <-s.dataToDev
+	if !ok {
+		return nil
+	}
+	return data
+}
 func init() {
 	// Initialize lwIP.
 	//

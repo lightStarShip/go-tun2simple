@@ -13,6 +13,7 @@ type LWIPStack interface {
 	Close() error
 	RestartTimeouts()
 	Accept() (net.Conn, error)
+	ReadOutIpPackets() []byte
 }
 
 var (
