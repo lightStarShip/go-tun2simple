@@ -87,6 +87,7 @@ func newLWIPStack() *lwipStack {
 		}
 	}()
 
+	_console(detailDebug, "======>>> stack created")
 	return &lwipStack{
 		tpcb:        tcpPCB,
 		upcb:        udpPCB,
@@ -98,6 +99,7 @@ func newLWIPStack() *lwipStack {
 }
 
 func (s *lwipStack) InputIpPackets(data []byte) (int, error) {
+	_console(detailDebug, "======>>> new data input", len(data))
 	select {
 	case <-s.ctx.Done():
 		return 0, errors.New("stack closed")

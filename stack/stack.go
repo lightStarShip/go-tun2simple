@@ -36,7 +36,7 @@ func (a *Agent) ReceiveDevData(data []byte) (int, error) {
 }
 
 func (a *Agent) cliLog(isOpen bool, args ...any) {
-	if isOpen {
+	if !isOpen {
 		return
 	}
 	a.devI.Log(fmt.Sprintln(args...))

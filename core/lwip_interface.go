@@ -30,14 +30,14 @@ var (
 
 func Inst() LWIPStack {
 	once.Do(func() {
-		stackInst = newLWIPStack()
 		_console = defaultLog
+		stackInst = newLWIPStack()
 	})
 	return stackInst
 }
 
 func defaultLog(isOpen bool, a ...any) {
-	if isOpen {
+	if !isOpen {
 		return
 	}
 	fmt.Println(a...)
