@@ -19,11 +19,3 @@ import (
 func setUDPRecvCallback(pcb *C.struct_udp_pcb, recvArg unsafe.Pointer) {
 	C.set_udp_recv_callback(pcb, recvArg)
 }
-
-/*
-
-typedef void (*udp_recv_fn)(void *arg, struct udp_pcb *pcb, struct pbuf *p,
-    const ip_addr_t *addr, u16_t port);
-
-
-*/
