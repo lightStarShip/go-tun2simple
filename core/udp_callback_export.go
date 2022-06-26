@@ -17,6 +17,7 @@ func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *
 		}
 	}()
 
+	_console(detailDebug, "======>>> udp conn created")
 	if pcb == nil {
 		return
 	}
@@ -38,6 +39,8 @@ func udpRecvFn(_ unsafe.Pointer, pcb *C.struct_udp_pcb, p *C.struct_pbuf, addr *
 			return
 		}
 		stackInst.udpConnMap.Store(connId, conn)
+
+		_console(detailDebug, "======>>> udp conn created")
 	}
 
 	var buf []byte

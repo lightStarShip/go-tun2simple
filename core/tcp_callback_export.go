@@ -19,6 +19,7 @@ import (
 
 //export tcpAcceptFn
 func tcpAcceptFn(_ unsafe.Pointer, newpcb *C.struct_tcp_pcb, err C.err_t) C.err_t {
+	_console(detailDebug, "======>>> tcpAcceptFn")
 	if err != C.ERR_OK {
 		return err
 	}

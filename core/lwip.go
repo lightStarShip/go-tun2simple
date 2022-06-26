@@ -9,6 +9,7 @@ package core
 import "C"
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -99,7 +100,7 @@ func newLWIPStack() *lwipStack {
 }
 
 func (s *lwipStack) InputIpPackets(data []byte) (int, error) {
-	_console(detailDebug, "======>>> new data input", len(data))
+	_console(false, "======>>> new data input", len(data), hex.EncodeToString(data))
 	select {
 	case <-s.ctx.Done():
 		return 0, errors.New("stack closed")
