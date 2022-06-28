@@ -1,10 +1,10 @@
 package tun2Simple
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
+	"golang.org/x/net/dns/dnsmessage"
 	"io"
 	"net"
 	"runtime/debug"
@@ -58,6 +58,7 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 	}
 
 	core.RegisterOutputFn(func(data []byte) (int, error) {
+		console("--------------", string(data))
 		return tunWriter.Write(data)
 	})
 	lwipStack := core.NewLWIPStack()
@@ -77,42 +78,54 @@ func (t *outlinetunnel) Write(data []byte) (int, error) {
 func (t *outlinetunnel) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	console("======>>>Connect:", conn.LocalAddr().String(), target.String())
 	if target.Port != COMMON_DNS_PORT {
+		console("======>>>Cannot handle non-DNS packet")
 		return errors.New("Cannot handle non-DNS packet")
 	}
 	return nil
 }
 
 func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
-	console("======>>>ReceiveTo:", len(data), conn.LocalAddr().String(), addr)
+	console("======>>>ReceiveTo:", conn.LocalAddr().String(), addr)
 
 	if len(data) < dnsHeaderLength {
 		console("======>>>Received malformed DNS query")
-		return errors.New("Received malformed DNS query")
+		return fmt.Errorf("received malformed DNS query")
 	}
-	//  DNS Header
-	//  0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	//  |                      ID                       |
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	//  |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	//  |                    QDCOUNT                    |
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	//  |                    ANCOUNT                    |
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	//  |                    NSCOUNT                    |
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	//  |                    ARCOUNT                    |
-	//  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-	// Set response and truncated bits
-	data[2] |= dnsMaskQr | dnsMaskTc
-	// Set response code to 'no error'.
-	data[3] &= ^dnsMaskRcode
-	// Set ANCOUNT to QDCOUNT. This is technically incorrect, since the response does not
-	// include an answer. However, without it some DNS clients (i.e. Windows 7) do not retry
-	// over TCP.
-	var qdcount = binary.BigEndian.Uint16(data[4:6])
-	binary.BigEndian.PutUint16(data[6:], qdcount)
+	msg := &dnsmessage.Message{}
+	if err := msg.Unpack(data); err != nil {
+		console("======>>>Unpack dns err:", err.Error())
+		return err
+	}
+
+	for idx, question := range msg.Questions {
+		console("======>>>dns query:=>", idx, question.Name)
+	}
+
+	//
+	////  DNS Header
+	////  0  1  2  3  4  5  6  7  0  1  2  3  4  5  6  7
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	////  |                      ID                       |
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	////  |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	////  |                    QDCOUNT                    |
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	////  |                    ANCOUNT                    |
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	////  |                    NSCOUNT                    |
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	////  |                    ARCOUNT                    |
+	////  +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+	//// Set response and truncated bits
+	//data[2] |= dnsMaskQr | dnsMaskTc
+	//// Set response code to 'no error'.
+	//data[3] &= ^dnsMaskRcode
+	//// Set ANCOUNT to QDCOUNT. This is technically incorrect, since the response does not
+	//// include an answer. However, without it some DNS clients (i.e. Windows 7) do not retry
+	//// over TCP.
+	//var qdcount = binary.BigEndian.Uint16(data[4:6])
+	//binary.BigEndian.PutUint16(data[6:], qdcount)
 	_, err := conn.WriteFrom(data, addr)
 	if err != nil {
 		console("======>>>conn write from err:", err.Error())
@@ -121,6 +134,6 @@ func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPA
 }
 
 func (t *outlinetunnel) Handle(conn net.Conn, target *net.TCPAddr) error {
-	console("======>>>Handle implement me", conn.LocalAddr(), target.String())
+	console("======>>>Handle implement me:", conn.LocalAddr(), target.String())
 	return nil
 }
