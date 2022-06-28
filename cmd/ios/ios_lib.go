@@ -32,6 +32,8 @@ const (
 	dnsMaskRcode    = uint8(0x0F)
 )
 
+var _iosApp *outlinetunnel = nil
+
 type Tunnel interface {
 	Write(data []byte) (int, error)
 }
@@ -43,6 +45,11 @@ type outlinetunnel struct {
 type TunnelDev interface {
 	io.WriteCloser
 	Log(s string)
+}
+
+func console(a ...any) {
+	log := fmt.Sprintln(a)
+	_iosApp.dev.Log(log)
 }
 
 func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
@@ -57,7 +64,9 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 	t := &outlinetunnel{
 		lwipStack,
 		tunWriter}
-	t.registerConnectionHandlers()
+	core.RegisterTCPConnHandler(t)
+	core.RegisterUDPConnHandler(t)
+	_iosApp = t
 	return t, nil
 }
 
@@ -65,15 +74,8 @@ func (t *outlinetunnel) Write(data []byte) (int, error) {
 	return t.lwipStack.Write(data)
 }
 
-// Registers UDP and TCP Shadowsocks connection handlers to the tunnel's host and port.
-// Registers a DNS/TCP fallback UDP handler when UDP is disabled.
-func (t *outlinetunnel) registerConnectionHandlers() {
-	core.RegisterTCPConnHandler(t)
-	core.RegisterUDPConnHandler(t)
-}
-
 func (t *outlinetunnel) Connect(conn core.UDPConn, target *net.UDPAddr) error {
-	t.dev.Log("======>>>Connect implement me")
+	console("======>>>Connect:", conn.LocalAddr().String(), target.String())
 	if target.Port != COMMON_DNS_PORT {
 		return errors.New("Cannot handle non-DNS packet")
 	}
@@ -81,9 +83,10 @@ func (t *outlinetunnel) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 }
 
 func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
-	t.dev.Log(fmt.Sprintf("======>>>ReceiveTo implement me%d loc:%s, rem:%s", len(data), conn.LocalAddr().String(), addr))
+	console("======>>>ReceiveTo:", len(data), conn.LocalAddr().String(), addr)
 
 	if len(data) < dnsHeaderLength {
+		console("======>>>Received malformed DNS query")
 		return errors.New("Received malformed DNS query")
 	}
 	//  DNS Header
@@ -111,10 +114,13 @@ func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPA
 	var qdcount = binary.BigEndian.Uint16(data[4:6])
 	binary.BigEndian.PutUint16(data[6:], qdcount)
 	_, err := conn.WriteFrom(data, addr)
+	if err != nil {
+		console("======>>>conn write from err:", err.Error())
+	}
 	return err
 }
 
 func (t *outlinetunnel) Handle(conn net.Conn, target *net.TCPAddr) error {
-	t.dev.Log("======>>>Handle implement me")
+	console("======>>>Handle implement me", conn.LocalAddr(), target.String())
 	return nil
 }
