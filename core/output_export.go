@@ -17,11 +17,11 @@ func output(p *C.struct_pbuf) C.err_t {
 	totlen := int(p.tot_len)
 	if p.tot_len == p.len {
 		buf := (*[1 << 30]byte)(unsafe.Pointer(p.payload))[:totlen:totlen]
-		stackInst.outputIPPackets(buf[:totlen])
+		OutputFn(buf[:totlen])
 	} else {
 		buf := NewBytes(totlen)
 		C.pbuf_copy_partial(p, unsafe.Pointer(&buf[0]), p.tot_len, 0) // data copy here!
-		stackInst.outputIPPackets(buf[:totlen])
+		OutputFn(buf[:totlen])
 		FreeBytes(buf)
 	}
 	return C.ERR_OK

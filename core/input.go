@@ -108,9 +108,6 @@ func input(pkt []byte) (int, error) {
 		// Copying data is not necessary for unfragmented UDP packets, and we would like to
 		// have all data in one pbuf.
 		buf = C.pbuf_alloc_reference(unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)), C.PBUF_REF)
-
-		_console(detailDebug, "======>>> udp packets")
-
 	} else {
 		// TODO Copy the data only when lwip need to keep it, e.g. in
 		// case we are returning ERR_CONN in tcpRecvFn.
@@ -119,7 +116,6 @@ func input(pkt []byte) (int, error) {
 		// contain multiple pbufs.
 		buf = C.pbuf_alloc(C.PBUF_RAW, C.u16_t(len(pkt)), C.PBUF_POOL)
 		C.pbuf_take(buf, unsafe.Pointer(&pkt[0]), C.u16_t(len(pkt)))
-		_console(detailDebug, "======>>> tcp packets")
 	}
 
 	ierr := C.input(buf)

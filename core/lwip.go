@@ -9,14 +9,20 @@ package core
 import "C"
 import (
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
-	"net"
 	"sync"
 	"time"
 	"unsafe"
 )
+
+const CHECK_TIMEOUTS_INTERVAL = 250 // in millisecond
+const TCP_POLL_INTERVAL = 8         // poll every 4 seconds
+
+type LWIPStack interface {
+	Write([]byte) (int, error)
+	Close() error
+	RestartTimeouts()
+}
 
 // lwIP runs in a single thread, locking is needed in Go runtime.
 var lwipMutex = &sync.Mutex{}
@@ -25,17 +31,13 @@ type lwipStack struct {
 	tpcb *C.struct_tcp_pcb
 	upcb *C.struct_udp_pcb
 
-	ctx         context.Context
-	cancel      context.CancelFunc
-	tcpConnChan chan net.Conn
-	udpConnMap  sync.Map
-	dataToDev   chan []byte
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
-// newLWIPStack listens for any incoming connections/packets and registers
+// NewLWIPStack listens for any incoming connections/packets and registers
 // corresponding accept/recv callback functions.
-
-func newLWIPStack() *lwipStack {
+func NewLWIPStack() LWIPStack {
 	tcpPCB := C.tcp_new()
 	if tcpPCB == nil {
 		panic("tcp_new return nil")
@@ -88,19 +90,16 @@ func newLWIPStack() *lwipStack {
 		}
 	}()
 
-	_console(detailDebug, "======>>> stack created")
 	return &lwipStack{
-		tpcb:        tcpPCB,
-		upcb:        udpPCB,
-		ctx:         ctx,
-		cancel:      cancel,
-		tcpConnChan: make(chan net.Conn, 1024), //TODO::1024
-		dataToDev:   make(chan []byte, 1024),   //TODO::1024
+		tpcb:   tcpPCB,
+		upcb:   udpPCB,
+		ctx:    ctx,
+		cancel: cancel,
 	}
 }
 
-func (s *lwipStack) InputIpPackets(data []byte) (int, error) {
-	_console(false, "======>>> new data input", len(data), hex.EncodeToString(data))
+// Write writes IP packets to the stack.
+func (s *lwipStack) Write(data []byte) (int, error) {
 	select {
 	case <-s.ctx.Done():
 		return 0, errors.New("stack closed")
@@ -129,6 +128,20 @@ func (s *lwipStack) Close() error {
 	// Stop firing timer events.
 	s.cancel()
 
+	// Abort and close all TCP and UDP connections.
+	tcpConns.Range(func(_, c interface{}) bool {
+		c.(*tcpConn).Abort()
+		return true
+	})
+	udpConns.Range(func(_, c interface{}) bool {
+		// This only closes UDP connections in the core,
+		// UDP connections in the handler will wait till
+		// timeout, they are not closed immediately for
+		// now.
+		c.(*udpConn).Close()
+		return true
+	})
+
 	// Remove callbacks and close listening pcbs.
 	lwipMutex.Lock()
 	C.tcp_accept(s.tpcb, nil)
@@ -140,28 +153,6 @@ func (s *lwipStack) Close() error {
 	return nil
 }
 
-func (s *lwipStack) Accept() (net.Conn, error) {
-	c, ok := <-s.tcpConnChan
-	if !ok {
-		return nil, fmt.Errorf("channel closed")
-	}
-	return c, nil
-}
-
-func (s *lwipStack) receiveTo(conn UDPConn, data []byte) error {
-	return nil
-}
-func (s *lwipStack) outputIPPackets(data []byte) {
-	s.dataToDev <- data
-}
-
-func (s *lwipStack) OutputIpPackets() []byte {
-	data, ok := <-s.dataToDev
-	if !ok {
-		return nil
-	}
-	return data
-}
 func init() {
 	// Initialize lwIP.
 	//

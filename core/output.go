@@ -28,7 +28,19 @@ set_output()
 }
 */
 import "C"
+import (
+	"errors"
+)
+
+var OutputFn func([]byte) (int, error)
+
+func RegisterOutputFn(fn func([]byte) (int, error)) {
+	OutputFn = fn
+	C.set_output()
+}
 
 func init() {
-	C.set_output()
+	OutputFn = func(data []byte) (int, error) {
+		return 0, errors.New("output function not set")
+	}
 }

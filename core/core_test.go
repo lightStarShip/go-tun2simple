@@ -1,8 +1,10 @@
 package core
 
 import (
+	"bytes"
 	"encoding/hex"
-	"fmt"
+	"net"
+	"sync"
 	"testing"
 )
 
@@ -16,18 +18,7 @@ const (
 	frag2Hex = "450003a00001007d40119b8a646a41005db8d822c726296a575ed8996bdad7392375d166d9894a6f0c0c08e4ae1ae9e55ae13a9f206b15cf74a43bff8f579f85344b972e7298f8c56d6a23081c19a369488a1b680af5f2e96e7d650261ac937ac709b74f45d15aa053b734cea3f5cbf400379a0e30e49bf696640a61a86076d867834cb79e7bcb798d129a28a8d81f47448ddc38b6040bd45607013d839c9198daabf8ae2f2994908e8b5d04f3194fe2def74e95e52aaf313119b9cef0bde9232fb7a95003e5fdcb9d8b759cf52d570c75f885333b600348b93fe8d0ccaa113465e37f20ce72b432ecc9c8a25809c2b2ed201a88d39b7f47023651ed6841e50b8fb298ef703888d603cd02438ac2ca563ae1ee273da555c3929a6221467f122a60bdb6484bd99d22fd4f4f3bfc41fd39e49c090acf33f46544c0705dbeb03b7249d90a398eacfbf239bcbb279e2596b06d25cfb9c6e247c34a57d55a272797f27df4fd2fc0fb23623f7c4890e05133ab2fa4f02cdd44eecabb3a49d7abae7dcb95f1429c82a685c4f69901cf22e355e31916bd20d038efc66dc37387d63a4330c516d03b6a2dd23bb9228d94c225723487792ae62888282a41e8c1c834d68ae58b4db92243671fd171157439282cfbab316439224dfb522f304a788f91c52715dc6588f0e1055455f159a28865d97292a7af670ec78afb229fcfa7cb97590d51d7fc8eb40edef005b19c8fb235f41b3bb5f6f7923b7534bf8ca8437ef93f40fabeb49b9eb9c5e8de9ad27ad8de282cea26adf3ddbd5b3ea4537535e2ddb864b125e73d330bf25d923e3df41be562b8de3bb3ce969defb159bc77cacb2337b07ac5204d8f1a39520089932ca6649a742f63c7e5e2ab25dc4bbed75faf68796dd5d521aee6452fbecc6af63623a1c55ad02de7c727c265ef8a4cdd109d41a7be9a5597dc69c3803e77340f2dff5608817b9c6d7c340c351e451401599a6ede93a0a897bd9bfe2dba1bfc7b61683ee9ff266a8a49fbec63ea60e4a58473c3705404cd3b3ff96415fcc92672a045555f48418a7125f0f4bda7b2df2d367af6d0e9d27a1f3895148c002b1503c6b83efa2a1e93def67fa07937d355b04a193465094e16128f33017e892d0bd154b9b87985eb6571d074d6011863b5af1395972d9415b21bd83d971cf5f3f67cc73dc0ab057aad3c83af4f6b10d5a6d8102ee3fe9f25929a14306871bf579e56dfd69cf45dd1472bbfcb1f0ab7fbb3972e27e2aba98273383b50700872d73f5c2ecf6ce3ea384ec08c4818fcfe0ed86513d617025f52"
 )
 
-var (
-	ntp, ntpPayload, frag1, frag2, fragPayload []byte
-
-	tcpRaw = []string{
-		"450000410445000040115c500a00000808080808f1a10035002d46d662a9010000010000000000000f6170702d6d6561737572656d656e7403636f6d0000010001",
-		"4500003c18810000401148190a00000808080808d54500350028ee46931d010000010000000000000377777706676f6f676c6503636f6d0000010001",
-		"450000407fee00004011e0a70a00000808080808c9410035002cf257b2fd01000001000000000000037777770a676f6f676c656170697303636f6d0000410001",
-		"45000040647600004011fc1f0a00000808080808d2290035002cb401e8ab01000001000000000000037777770a676f6f676c656170697303636f6d0000010001",
-		"45000050987000004011c8150a00000808080808d4610035003c4372efc5010000010000000000000c696e732d7232337473757566036961730d74656e63656e742d636c6f7564036e65740000010001",
-		"45000040af9b00004011b0fa0a00000808080808d4ab0035002cf11eb9ec010000010000000000000872656465736c61620667697468756202696f0000410001",
-	}
-)
+var ntp, ntpPayload, frag1, frag2, fragPayload []byte
 
 func decode(s string) []byte {
 	b, err := hex.DecodeString(s)
@@ -36,7 +27,23 @@ func decode(s string) []byte {
 	}
 	return b
 }
-func setupUDP() {
+
+// This is a trivial UDP handler that sends each received packet to a channel for inspection.
+type fakeUDPHandler struct {
+	UDPConnHandler
+	packets chan []byte
+}
+
+func (h *fakeUDPHandler) Connect(conn UDPConn, target *net.UDPAddr) error {
+	return nil
+}
+
+func (h *fakeUDPHandler) ReceiveTo(conn UDPConn, data []byte, addr *net.UDPAddr) error {
+	h.packets <- data
+	return nil
+}
+
+func setupUDP(t *testing.T) (LWIPStack, *fakeUDPHandler) {
 	// Reinitialize source data before each test to avoid interference.
 	ntp = decode(ntpHex)
 	ntpPayload = ntp[ipv4Header+udpHeader:]
@@ -45,25 +52,83 @@ func setupUDP() {
 	fragPayload = append([]byte(nil), frag1[ipv4Header+udpHeader:]...)
 	fragPayload = append(fragPayload, frag2[ipv4Header:]...)
 
+	// Reset the set of known UDP connections to empty before each test.  Otherwise, the
+	// tests will interfere with each other.
+	udpConns = sync.Map{}
+
+	s := NewLWIPStack()
+	// This channel is buffered because the first Write->ReceiveTo can either be synchronous or
+	// asynchronous, depending on the results of a race during "connection".
+	h := &fakeUDPHandler{packets: make(chan []byte, 1)}
+	RegisterUDPConnHandler(h)
+	return s, h
 }
 
-func TestInst(t *testing.T) {
-	s := Inst()
-	sig := make(chan struct{}, 1)
-	setupUDP()
-	n, e := s.InputIpPackets(fragPayload)
-	fmt.Println(n, e)
-	<-sig
-}
-
-func TestTcp(t *testing.T) {
-	s := Inst()
-	sig := make(chan struct{}, 1)
-	for _, d := range tcpRaw {
-		tcpPayLoad := decode(d)
-		n, e := s.InputIpPackets(tcpPayLoad)
-		fmt.Println(n, e)
+func write(s LWIPStack, b []byte, t *testing.T) {
+	if _, err := s.Write(b); err != nil {
+		t.Fatal(err)
 	}
+}
 
-	<-sig
+func checkedCopy(dst, src []byte, t *testing.T) {
+	if copy(dst, src) != len(src) {
+		t.Fatal("Copy failed due to test misconfiguration")
+	}
+}
+
+func assertEqual(actual, expected []byte, t *testing.T) {
+	if !bytes.Equal(actual, expected) {
+		t.Error("Payloads are not equal")
+	}
+}
+
+// Basic test for sending a single UDP packet.
+func TestUDP(t *testing.T) {
+	s, h := setupUDP(t)
+	write(s, ntp, t)
+	assertEqual(<-h.packets, ntpPayload, t)
+}
+
+// Send a fragmented UDP packet.
+func TestUDPFragmentation(t *testing.T) {
+	s, h := setupUDP(t)
+	write(s, frag1, t)
+	write(s, frag2, t)
+	assertEqual(<-h.packets, fragPayload, t)
+}
+
+// Write UDP fragments out of order.
+func TestUDPFragmentReordering(t *testing.T) {
+	s, h := setupUDP(t)
+	write(s, frag2, t)
+	write(s, frag1, t)
+	assertEqual(<-h.packets, fragPayload, t)
+}
+
+// Send a fragmented UDP packet where fragments reuse the same buffer.
+func TestUDPFragmentationMemory(t *testing.T) {
+	s, h := setupUDP(t)
+	buf := make([]byte, len(frag1))
+
+	checkedCopy(buf, frag1, t)
+	write(s, buf[:len(frag1)], t)
+
+	checkedCopy(buf, frag2, t)
+	write(s, buf[:len(frag2)], t)
+
+	assertEqual(<-h.packets, fragPayload, t)
+}
+
+// Regression test for a segmentation fault.
+func TestUDPFragmentationMemoryAndReordering(t *testing.T) {
+	s, h := setupUDP(t)
+	buf := make([]byte, len(frag1))
+
+	checkedCopy(buf, frag2, t)
+	write(s, buf[:len(frag2)], t)
+
+	checkedCopy(buf, frag1, t)
+	write(s, buf[:len(frag1)], t)
+
+	assertEqual(<-h.packets, fragPayload, t)
 }

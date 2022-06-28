@@ -30,6 +30,9 @@
 #ifndef LWIP_CUSTOM_LWIPOPTS_H
 #define LWIP_CUSTOM_LWIPOPTS_H
 
+// enable tun2socks logic
+#define TUN2SOCKS 1
+
 #define NO_SYS 1
 #define LWIP_TIMERS 1
 
@@ -93,8 +96,7 @@
 // is used regardless of the platform
 #define IPV6_FRAG_COPYHEADER 1
 
-#define LWIP_DEBUG 1
-
+#define LWIP_DEBUG 0
 #define LWIP_DBG_TYPES_ON LWIP_DBG_OFF
 #define INET_DEBUG LWIP_DBG_ON
 #define IP_DEBUG LWIP_DBG_ON

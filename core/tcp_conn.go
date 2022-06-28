@@ -3,13 +3,13 @@ package core
 /*
 #cgo CFLAGS: -I./lwip/src/include
 #include "lwip/tcp.h"
-#include "lwip/priv/tcp_priv.h"
 */
 import "C"
 import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -59,8 +59,11 @@ type tcpConn struct {
 	sync.Mutex
 
 	pcb           *C.struct_tcp_pcb
+	handler       TCPConnHandler
 	remoteAddr    *net.TCPAddr
 	localAddr     *net.TCPAddr
+	connKeyArg    unsafe.Pointer
+	connKey       uint32
 	canWrite      *sync.Cond // Condition variable to implement TCP backpressure.
 	state         tcpConnState
 	sndPipeReader *io.PipeReader
@@ -69,7 +72,14 @@ type tcpConn struct {
 	closeErr      error
 }
 
-func newTCPConn(pcb *C.struct_tcp_pcb) TCPConn {
+func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) {
+	connKeyArg := newConnKeyArg()
+	connKey := rand.Uint32()
+	setConnKeyVal(unsafe.Pointer(connKeyArg), connKey)
+
+	// Pass the key as arg for subsequent tcp callbacks.
+	C.tcp_arg(pcb, unsafe.Pointer(connKeyArg))
+
 	// Register callbacks.
 	setTCPRecvCallback(pcb)
 	setTCPSentCallback(pcb)
@@ -79,41 +89,48 @@ func newTCPConn(pcb *C.struct_tcp_pcb) TCPConn {
 	pipeReader, pipeWriter := io.Pipe()
 	conn := &tcpConn{
 		pcb:           pcb,
+		handler:       handler,
 		localAddr:     ParseTCPAddr(ipAddrNTOA(pcb.remote_ip), uint16(pcb.remote_port)),
 		remoteAddr:    ParseTCPAddr(ipAddrNTOA(pcb.local_ip), uint16(pcb.local_port)),
+		connKeyArg:    connKeyArg,
+		connKey:       connKey,
 		canWrite:      sync.NewCond(&sync.Mutex{}),
 		state:         tcpNewConn,
 		sndPipeReader: pipeReader,
 		sndPipeWriter: pipeWriter,
 	}
 
-	C.tcp_arg(pcb, unsafe.Pointer(conn))
+	// Associate conn with key and save to the global map.
+	tcpConns.Store(connKey, conn)
 
-	//conn.Lock()
-	//conn.state = tcpConnecting
-	//conn.Unlock()
-	//go func() {
-	//	err := handler.Handle(TCPConn(conn), conn.RemoteAddr())
-	//	if err != nil {
-	//		conn.Abort()
-	//	} else {
+	// Connecting remote host could take some time, do it in another goroutine
+	// to prevent blocking the lwip thread.
 	conn.Lock()
-	//		if conn.state != tcpConnecting {
-	//			conn.Unlock()
-	//			return
-	//		}
-	conn.state = tcpConnected
+	conn.state = tcpConnecting
 	conn.Unlock()
+	go func() {
+		err := handler.Handle(TCPConn(conn), conn.remoteAddr)
+		if err != nil {
+			conn.Abort()
+		} else {
+			conn.Lock()
+			if conn.state != tcpConnecting {
+				conn.Unlock()
+				return
+			}
+			conn.state = tcpConnected
+			conn.Unlock()
 
-	lwipMutex.Lock()
-	if pcb.refused_data != nil {
-		C.tcp_process_refused_data(pcb)
-	}
-	lwipMutex.Unlock()
-	//	}
-	//}()
-	_console(detailDebug, "======>>> new connection create", conn.remoteAddr.String())
-	return conn
+			//TODO::::----->>>lws
+			//lwipMutex.Lock()
+			//if pcb.refused_data != nil {
+			//	C.tcp_process_refused_data(pcb)
+			//}
+			//lwipMutex.Unlock()
+		}
+	}()
+
+	return conn, NewLWIPError(LWIP_ERR_OK)
 }
 
 func (conn *tcpConn) RemoteAddr() net.Addr {
@@ -444,7 +461,10 @@ func (conn *tcpConn) LocalClosed() error {
 }
 
 func (conn *tcpConn) release() {
-
+	if _, found := tcpConns.Load(conn.connKey); found {
+		freeConnKeyArg(conn.connKeyArg)
+		tcpConns.Delete(conn.connKey)
+	}
 	conn.sndPipeWriter.Close()
 	conn.sndPipeReader.Close()
 	conn.state = tcpClosed
