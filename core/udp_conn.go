@@ -1,7 +1,7 @@
 package core
 
 /*
-#cgo CFLAGS: -I./lwip/src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/udp.h"
 */
 import "C"
@@ -38,7 +38,7 @@ type udpConn struct {
 	pending   chan *udpPacket
 }
 
-func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr_t, localPort C.u16_t, localAddr *net.UDPAddr) (UDPConn, error) {
+func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr_t, localPort C.u16_t, localAddr, remoteAddr *net.UDPAddr) (UDPConn, error) {
 	conn := &udpConn{
 		handler:   handler,
 		pcb:       pcb,
@@ -50,7 +50,7 @@ func newUDPConn(pcb *C.struct_udp_pcb, handler UDPConnHandler, localIP C.ip_addr
 	}
 
 	go func() {
-		err := handler.Connect(conn, nil) //TODO:::------>>>lws
+		err := handler.Connect(conn, remoteAddr)
 		if err != nil {
 			conn.Close()
 		} else {
@@ -142,7 +142,7 @@ func (conn *udpConn) WriteFrom(data []byte, addr *net.UDPAddr) (int, error) {
 	}
 	buf := C.pbuf_alloc_reference(unsafe.Pointer(&data[0]), C.u16_t(len(data)), C.PBUF_ROM)
 	defer C.pbuf_free(buf)
-	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort) //TODO:::------>>>lws
+	C.udp_sendto(conn.pcb, buf, &conn.localIP, conn.localPort, &cremoteIP, C.u16_t(addr.Port))
 	return len(data), nil
 }
 

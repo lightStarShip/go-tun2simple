@@ -1,7 +1,7 @@
 package core
 
 /*
-#cgo CFLAGS: -I./lwip/src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/tcp.h"
 
 extern err_t tcpAcceptFn(void *arg, struct tcp_pcb *newpcb, err_t err);

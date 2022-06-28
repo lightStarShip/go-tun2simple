@@ -1,10 +1,10 @@
 package core
 
 /*
-#cgo CFLAGS: -I./lwip/src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/udp.h"
 
-extern void udpRecvFn(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
+extern void udpRecvFn(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port, const ip_addr_t *dest_addr, u16_t dest_port);
 
 void
 set_udp_recv_callback(struct udp_pcb *pcb, void *recv_arg) {

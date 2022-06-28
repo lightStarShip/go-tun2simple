@@ -4,7 +4,7 @@
 package core
 
 /*
-#cgo CFLAGS: -I./lwip/src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/init.h"
 */
 import "C"

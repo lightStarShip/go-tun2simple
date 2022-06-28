@@ -1,7 +1,7 @@
 package core
 
 /*
-#cgo CFLAGS: -I./lwip/src/include
+#cgo CFLAGS: -I./c/include
 #include "lwip/tcp.h"
 */
 import "C"
@@ -121,12 +121,11 @@ func newTCPConn(pcb *C.struct_tcp_pcb, handler TCPConnHandler) (TCPConn, error) 
 			conn.state = tcpConnected
 			conn.Unlock()
 
-			//TODO::::----->>>lws
-			//lwipMutex.Lock()
-			//if pcb.refused_data != nil {
-			//	C.tcp_process_refused_data(pcb)
-			//}
-			//lwipMutex.Unlock()
+			lwipMutex.Lock()
+			if pcb.refused_data != nil {
+				C.tcp_process_refused_data(pcb)
+			}
+			lwipMutex.Unlock()
 		}
 	}()
 
