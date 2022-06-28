@@ -98,7 +98,7 @@ func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPA
 	}
 
 	for idx, question := range msg.Questions {
-		console("======>>>dns query:=>", idx, question.Name)
+		console("======>>>dns query:=>", idx, question.GoString())
 	}
 
 	//
