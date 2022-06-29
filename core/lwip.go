@@ -18,12 +18,6 @@ import (
 const CHECK_TIMEOUTS_INTERVAL = 250 // in millisecond
 const TCP_POLL_INTERVAL = 8         // poll every 4 seconds
 
-type LWIPStack interface {
-	Write([]byte) (int, error)
-	Close() error
-	RestartTimeouts()
-}
-
 // lwIP runs in a single thread, locking is needed in Go runtime.
 var lwipMutex = &sync.Mutex{}
 
@@ -35,9 +29,7 @@ type lwipStack struct {
 	cancel context.CancelFunc
 }
 
-// NewLWIPStack listens for any incoming connections/packets and registers
-// corresponding accept/recv callback functions.
-func NewLWIPStack() LWIPStack {
+func newLwip() *lwipStack {
 	tcpPCB := C.tcp_new()
 	if tcpPCB == nil {
 		panic("tcp_new return nil")
