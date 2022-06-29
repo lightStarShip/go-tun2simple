@@ -47,8 +47,8 @@ type TunnelDev interface {
 }
 
 func console(a ...any) {
-	//log := fmt.Sprintln(a)
-	//_iosApp.dev.Log(log)
+	log := fmt.Sprintln(a...)
+	_iosApp.dev.Log(log)
 }
 
 func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
