@@ -32,13 +32,13 @@ const (
 	dnsMaskRcode    = uint8(0x0F)
 )
 
-var _iosApp *outlinetunnel = nil
+var _iosApp *iosApp = nil
 
 type Tunnel interface {
 	Write(data []byte) (int, error)
 }
 
-type outlinetunnel struct {
+type iosApp struct {
 	lwipStack core.LWIPStack
 	dev       TunnelDev
 }
@@ -62,7 +62,7 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 		return tunWriter.Write(data)
 	})
 	lwipStack := core.NewLWIPStack()
-	t := &outlinetunnel{
+	t := &iosApp{
 		lwipStack,
 		tunWriter}
 	core.RegisterTCPConnHandler(t)
@@ -71,11 +71,11 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 	return t, nil
 }
 
-func (t *outlinetunnel) Write(data []byte) (int, error) {
+func (t *iosApp) Write(data []byte) (int, error) {
 	return t.lwipStack.Write(data)
 }
 
-func (t *outlinetunnel) Connect(conn core.UDPConn, target *net.UDPAddr) error {
+func (t *iosApp) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	console("======>>>Connect:", conn.LocalAddr().String(), target.String())
 	if target.Port != COMMON_DNS_PORT {
 		console("======>>>Cannot handle non-DNS packet")
@@ -84,7 +84,7 @@ func (t *outlinetunnel) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	return nil
 }
 
-func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
+func (t *iosApp) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	console("======>>>ReceiveTo:", conn.LocalAddr().String(), addr)
 
 	if len(data) < dnsHeaderLength {
@@ -133,7 +133,7 @@ func (t *outlinetunnel) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPA
 	return err
 }
 
-func (t *outlinetunnel) Handle(conn net.Conn, target *net.TCPAddr) error {
+func (t *iosApp) Handle(conn net.Conn, target *net.TCPAddr) error {
 	console("======>>>Handle implement me:", conn.LocalAddr(), target.String())
 	return nil
 }
