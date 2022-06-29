@@ -47,8 +47,8 @@ type TunnelDev interface {
 }
 
 func console(a ...any) {
-	log := fmt.Sprintln(a)
-	_iosApp.dev.Log(log)
+	//log := fmt.Sprintln(a)
+	//_iosApp.dev.Log(log)
 }
 
 func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
@@ -57,7 +57,7 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 	}
 
 	core.RegisterOutputFn(func(data []byte) (int, error) {
-		console("--------------", string(data))
+		//console("======>>>data raw:", hex.EncodeToString(data))
 		return tunWriter.Write(data)
 	})
 	lwipStack := core.Inst()

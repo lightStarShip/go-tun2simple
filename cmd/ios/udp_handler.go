@@ -40,10 +40,10 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 	for idx, question := range msg.Questions {
 		console("======>>>dns query:=>", idx, question.GoString())
 	}
-
-	_, err := conn.WriteFrom(data, addr)
-	if err != nil {
-		console("======>>>conn write from err:", err.Error())
-	}
-	return err
+	//_, err := conn.WriteFrom(data, addr)
+	//if err != nil {
+	//	console("======>>>conn write from err:", err.Error())
+	//}
+	//return err
+	return nil
 }
