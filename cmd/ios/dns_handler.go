@@ -63,6 +63,6 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 		console("======>>>Unpack dns err:", err.Error())
 		return err
 	}
-	console("======>>>dns query:=>", n, msg.ID, msg.GoString())
+	console("======>>>dns response:=>", n, msg.ID, msg.GoString())
 	return nil
 }
