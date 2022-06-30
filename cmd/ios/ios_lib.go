@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
+	"github.com/lightStarShip/go-tun2simple/proxy/redirect"
+	"github.com/lightStarShip/go-tun2simple/utils"
 	"io"
 	"net"
 	"runtime/debug"
@@ -46,8 +48,8 @@ type TunnelDev interface {
 	Log(s string)
 }
 
-func console(a ...any) {
-	log := fmt.Sprintln(a...)
+func console(msg string, a ...any) {
+	log := fmt.Sprintf(msg, a...)
 	_iosApp.dev.Log(log)
 }
 
@@ -65,8 +67,11 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 		lwipStack,
 		tunWriter}
 	core.RegisterTCPConnHandler(t)
-	core.RegisterUDPConnHandler(NewDnsHandler())
+	core.RegisterUDPConnHandler(redirect.NewUDPHandler(10))
 	_iosApp = t
+
+	utils.LogInst().InitParam(utils.DEBUG, console)
+
 	return t, nil
 }
 
@@ -75,6 +80,6 @@ func (t *iosApp) Write(data []byte) (int, error) {
 }
 
 func (t *iosApp) Handle(conn net.Conn, target *net.TCPAddr) error {
-	console("======>>>Handle implement me:", conn.LocalAddr(), target.String())
+	utils.LogInst().Debugf("======>>>Handle implement me:", conn.LocalAddr(), target.String())
 	return nil
 }

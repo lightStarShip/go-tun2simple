@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/lightStarShip/go-tun2simple/utils"
 	"golang.org/x/net/dns/dnsmessage"
 	"net"
 	"testing"
@@ -15,6 +16,9 @@ var p1 = "450000500019000040116e7b010101010a0000080035cbd8003cffdc6bba0100000100
 var p2 = "4500004b0033000040116058080808080a0000080035f17d00370f536367010000010000000000000f636f6d6d6e61742d6d61696e2d676303657373056170706c6503636f6d0000010001"
 
 func TestUnpackDns(t *testing.T) {
+	utils.LogInst().InitParam(utils.DEBUG, func(msg string, args ...any) {
+		fmt.Printf(msg, args...)
+	})
 
 	buff, err := hex.DecodeString(p1)
 	if err != nil {
