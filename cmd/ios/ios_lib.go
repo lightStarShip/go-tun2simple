@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
-	"github.com/lightStarShip/go-tun2simple/proxy/redirect"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"io"
 	"net"
@@ -67,7 +66,7 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 		lwipStack,
 		tunWriter}
 	core.RegisterTCPConnHandler(t)
-	core.RegisterUDPConnHandler(redirect.NewUDPHandler(20 * time.Second))
+	core.RegisterUDPConnHandler(NewDnsHandler())
 	_iosApp = t
 
 	utils.LogInst().InitParam(utils.DEBUG, console)

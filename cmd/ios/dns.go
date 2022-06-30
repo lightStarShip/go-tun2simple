@@ -30,16 +30,24 @@ func NewDnsHandler() core.UDPConnHandler {
 }
 
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
-	utils.LogInst().Debugf("======>>>Connect:", conn.LocalAddr().String(), target.String())
+	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
 	if target.Port != COMMON_DNS_PORT {
 		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet")
 		return errors.New("can not handle non-DNS packet")
 	}
 	return nil
 }
-func (dh *dnsHandler) close() {
 
+func (dh *dnsHandler) close() {
+	utils.LogInst().Warnf("======>>>dns handler quit......")
+	dh.Lock()
+	for _, conn := range dh.cache {
+		conn.Close()
+	}
+	dh.Unlock()
+	dh.pivot.Close()
 }
+
 func (dh *dnsHandler) waitResponse() {
 	buf := core.NewBytes(core.BufSize)
 
@@ -56,13 +64,14 @@ func (dh *dnsHandler) waitResponse() {
 		}
 		msg := &dnsmessage.Message{}
 		if err := msg.Unpack(buf[:n]); err != nil {
-			utils.LogInst().Errorf("======>>>Unpack dns response err:", err.Error())
+			utils.LogInst().Errorf("======>>>Unpack dns response err:%s", err.Error())
 			continue
 		}
 		dh.Lock()
 		conn, ok := dh.cache[msg.ID]
 		if !ok {
 			dh.Unlock()
+			utils.LogInst().Warnf("======>>> no such[%d] cache item", msg.ID)
 			continue
 		}
 		delete(dh.cache, msg.ID)
@@ -70,21 +79,23 @@ func (dh *dnsHandler) waitResponse() {
 
 		_, err = conn.WriteFrom(buf[:n], addr)
 		if err != nil {
-			utils.LogInst().Errorf("======>>>dns proxy write back err:", err.Error())
+			utils.LogInst().Errorf("======>>>dns proxy write back err:%s", err.Error())
 			continue
 		}
+		utils.LogInst().Debugf("======>>>dns[%d] answers:%s :=>", msg.ID, msg.Answers)
+
 	}
 }
 
 func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
-	utils.LogInst().Debugf("======>>>ReceiveTo:", conn.LocalAddr().String(), addr)
+	utils.LogInst().Debugf("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
 
 	msg := &dnsmessage.Message{}
 	if err := msg.Unpack(data); err != nil {
-		utils.LogInst().Errorf("======>>>Unpack dns request err:", err.Error())
+		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error())
 		return err
 	}
-	utils.LogInst().Debugf("======>>>dns response:=>", msg.ID, msg.Questions)
+	utils.LogInst().Debugf("======>>>dns[%d] questions:%s =>", msg.ID, msg.Questions)
 
 	dh.Lock()
 	dh.cache[msg.ID] = conn
@@ -92,7 +103,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 
 	_, err := dh.pivot.WriteToUDP(data, addr)
 	if err != nil {
-		utils.LogInst().Errorf("======>>>dns forward err:", err.Error())
+		utils.LogInst().Errorf("======>>>dns forward err:%s", err.Error())
 		return err
 	}
 
