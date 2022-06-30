@@ -67,7 +67,7 @@ func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
 		lwipStack,
 		tunWriter}
 	core.RegisterTCPConnHandler(t)
-	core.RegisterUDPConnHandler(redirect.NewUDPHandler(10))
+	core.RegisterUDPConnHandler(redirect.NewUDPHandler(20 * time.Second))
 	_iosApp = t
 
 	utils.LogInst().InitParam(utils.DEBUG, console)

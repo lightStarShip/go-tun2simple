@@ -40,13 +40,7 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, pc *net.UDPConn) {
 		pc.SetDeadline(time.Now().Add(h.timeout))
 		n, addr, err := pc.ReadFromUDP(buf)
 		if err != nil {
-			// log.Printf("failed to read UDP data from remote: %v", err)
-			return
-		}
-
-		_, err = conn.WriteFrom(buf[:n], addr)
-		if err != nil {
-			utils.LogInst().Warnf("failed to write UDP data to TUN")
+			utils.LogInst().Errorf("failed to read UDP data from remote: %v", err)
 			return
 		}
 
@@ -56,6 +50,12 @@ func (h *udpHandler) fetchUDPInput(conn core.UDPConn, pc *net.UDPConn) {
 			return
 		}
 		utils.LogInst().Debugf("======>>>dns response:=>", n, msg.ID, msg.GoString())
+
+		_, err = conn.WriteFrom(buf[:n], addr)
+		if err != nil {
+			utils.LogInst().Warnf("failed to write UDP data to TUN")
+			return
+		}
 	}
 }
 
@@ -89,6 +89,7 @@ func (h *udpHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr
 		}
 		return nil
 	} else {
+		utils.LogInst().Errorf("proxy connection %v->%v does not exists", conn.LocalAddr(), addr)
 		return errors.New(fmt.Sprintf("proxy connection %v->%v does not exists", conn.LocalAddr(), addr))
 	}
 }
