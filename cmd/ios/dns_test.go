@@ -15,10 +15,13 @@ import (
 var p1 = "450000500019000040116e7b010101010a0000080035cbd8003cffdc6bba01000001000000000000136f617574686163636f756e746d616e616765720a676f6f676c656170697303636f6d0000010001"
 var p2 = "4500004b0033000040116058080808080a0000080035f17d00370f536367010000010000000000000f636f6d6d6e61742d6d61696e2d676303657373056170706c6503636f6d0000010001"
 
-func TestUnpackDns(t *testing.T) {
+func init() {
 	utils.LogInst().InitParam(utils.DEBUG, func(msg string, args ...any) {
 		fmt.Printf(msg, args...)
 	})
+}
+
+func TestUnpackDns(t *testing.T) {
 
 	buff, err := hex.DecodeString(p1)
 	if err != nil {
@@ -36,6 +39,8 @@ func TestUnpackDns(t *testing.T) {
 	}
 
 	payload := udp.Payload
+
+	fmt.Println(hex.EncodeToString(payload))
 
 	msg := &dnsmessage.Message{}
 	if err := msg.Unpack(payload); err != nil {

@@ -6,7 +6,6 @@ import (
 	"github.com/lightStarShip/go-tun2simple/core"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"io"
-	"net"
 	"runtime/debug"
 	"time"
 )
@@ -52,33 +51,28 @@ func console(msg string, a ...any) {
 	_iosApp.dev.Log(log)
 }
 
-func NewTunnel(tunWriter TunnelDev) (Tunnel, error) {
+func NewTunnel(tunWriter TunnelDev, logLevel int) (Tunnel, error) {
 	if tunWriter == nil {
 		return nil, errors.New("Must provide a TUN writer")
 	}
 
 	core.RegisterOutputFn(func(data []byte) (int, error) {
-		//console("======>>>data raw:", hex.EncodeToString(data))
+		//utils.LogInst().Debugf("======>>>RegisterOutputFn:%s", hex.EncodeToString(data))
 		return tunWriter.Write(data)
 	})
 	lwipStack := core.Inst()
 	t := &iosApp{
 		lwipStack,
 		tunWriter}
-	core.RegisterTCPConnHandler(t)
+	core.RegisterTCPConnHandler(newTCPHandler())
 	core.RegisterUDPConnHandler(NewDnsHandler())
 	_iosApp = t
 
-	utils.LogInst().InitParam(utils.DEBUG, console)
+	utils.LogInst().InitParam(utils.LogLevel(logLevel), console)
 
 	return t, nil
 }
 
 func (t *iosApp) Write(data []byte) (int, error) {
 	return t.lwipStack.Write(data)
-}
-
-func (t *iosApp) Handle(conn net.Conn, target *net.TCPAddr) error {
-	utils.LogInst().Debugf("======>>>Handle implement me:", conn.LocalAddr(), target.String())
-	return nil
 }

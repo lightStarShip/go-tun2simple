@@ -32,7 +32,7 @@ func NewDnsHandler() core.UDPConnHandler {
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
 	if target.Port != COMMON_DNS_PORT {
-		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet")
+		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%d", target.String())
 		return errors.New("can not handle non-DNS packet")
 	}
 	return nil
@@ -88,8 +88,7 @@ func (dh *dnsHandler) waitResponse() {
 }
 
 func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
-	utils.LogInst().Debugf("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
-
+	utils.LogInst().Infof("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
 	msg := &dnsmessage.Message{}
 	if err := msg.Unpack(data); err != nil {
 		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error())
