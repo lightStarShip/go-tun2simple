@@ -1,7 +1,10 @@
 package tun2Simple
 
 import (
+	"encoding/json"
+	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
+	test "github.com/lightStarShip/go-tun2simple/stack"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"io"
 	"net"
@@ -20,71 +23,75 @@ func newTCPHandler() core.TCPConnHandler {
 	return &tcpHandler{}
 }
 
-func (h *tcpHandler) handleInput(conn net.Conn, input io.ReadCloser) {
-	defer func() {
-		if tcpConn, ok := conn.(core.TCPConn); ok {
-			tcpConn.CloseWrite()
-		} else {
-			conn.Close()
-		}
-		if tcpInput, ok := input.(duplexConn); ok {
-			tcpInput.CloseRead()
-		} else {
-			input.Close()
-		}
-	}()
-
-	io.Copy(conn, input)
-}
-
-func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
-	defer func() {
-		if tcpConn, ok := conn.(core.TCPConn); ok {
-			tcpConn.CloseRead()
-		} else {
-			conn.Close()
-		}
-		if tcpOutput, ok := output.(duplexConn); ok {
-			tcpOutput.CloseWrite()
-		} else {
-			output.Close()
-		}
-	}()
-
-	io.Copy(output, conn)
+func relay(src, dst net.Conn) {
+	io.Copy(src, dst)
+	src.Close()
+	dst.Close()
 }
 
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	var targetConn *net.TCPConn = nil
+
 	if RInst().NeedProxy(target.IP.String()) {
 		utils.LogInst().Infof("======>>>****** need a proxy for target:%s", target.String())
 		c, err := net.DialTCP("tcp", nil, &net.TCPAddr{
-			IP:   net.ParseIP(""),
+			IP:   net.ParseIP("149.248.37.162"),
 			Port: 18888,
 		})
 		if err != nil {
 			return err
 		}
-		if err := h.syncTarget(c); err != nil {
+
+		if err := h.syncTarget(target.String(), c); err != nil {
+			c.Close()
+			utils.LogInst().Errorf("======>>>proxy sync target[%s] err:%v", target.String(), err)
 			return err
 		}
+
 		targetConn = c
+		utils.LogInst().Infof("======>>> proxy for target:%s", target.String())
 
 	} else {
-		utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
 		c, err := net.DialTCP("tcp", nil, target)
 		if err != nil {
 			utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
 			return err
 		}
 		targetConn = c
+		utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
 	}
 
-	go h.handleInput(conn, targetConn)
-	go h.handleOutput(conn, targetConn)
+	go relay(conn, targetConn)
+	go relay(targetConn, conn)
 	return nil
 }
 
-func (h *tcpHandler) syncTarget(tConn *net.TCPConn) error {
+func (h *tcpHandler) syncTarget(target string, tConn *net.TCPConn) error {
+	data, err := json.Marshal(&test.TestProxySync{
+		Target: target,
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = tConn.Write(data)
+	if err != nil {
+		return err
+	}
+
+	buf := make([]byte, 1024)
+	n, err := tConn.Read(buf)
+	if err != nil {
+		return err
+	}
+	ack := &test.TestProxyAck{}
+	err = json.Unmarshal(buf[:n], ack)
+	if err != nil {
+		return err
+
+	}
+	if ack.Msg != "OK" {
+		return fmt.Errorf(ack.Msg)
+	}
 	return nil
 }

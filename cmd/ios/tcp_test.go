@@ -2,6 +2,7 @@ package tun2Simple
 
 import (
 	"encoding/json"
+	"fmt"
 	test "github.com/lightStarShip/go-tun2simple/stack"
 	"net"
 	"testing"
@@ -9,7 +10,7 @@ import (
 
 func TestTcpDial(t *testing.T) {
 	c, err := net.DialTCP("tcp", nil, &net.TCPAddr{
-		IP:   net.ParseIP("127.0.0.1"),
+		IP:   net.ParseIP("149.248.37.162"),
 		Port: 18888,
 	})
 	if err != nil {
@@ -46,4 +47,8 @@ func TestTcpDial(t *testing.T) {
 	c.Write(data)
 	c.Write(data)
 	c.Write(data)
+}
+
+func TestDnsLookup(t *testing.T) {
+	fmt.Println(net.LookupHost("rr4---sn-nx57ynld.googlevideo.com."))
 }
