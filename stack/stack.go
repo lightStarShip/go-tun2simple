@@ -1,98 +1,107 @@
 package stack
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
+	"io"
 	"net"
 )
 
-type Agent struct {
-	devI      DeviceI
-	lwipStack core.LWIPStack
-	sig       chan struct{}
-}
-
-type DeviceI interface {
-	Stack2Dev(data []byte)
-	StackClosed()
-	Log(s string)
-}
-
-func SetupAgent(di DeviceI) (*Agent, error) {
-	lwipStack := core.Inst()
-	a := &Agent{
-		devI:      di,
-		lwipStack: lwipStack,
-		sig:       make(chan struct{}, 1),
+func SimpleStack() {
+	src, err := net.ListenTCP("tcp", &net.TCPAddr{
+		IP:   nil,
+		Port: 18888,
+	})
+	if err != nil {
+		panic(err)
 	}
-	core.RegLogFunc(a.cliLog)
-	go a.monitorOutput()
-	go a.listening()
-	return a, nil
-}
-
-func (a *Agent) ReceiveDevData(data []byte) (int, error) {
-	return a.lwipStack.InputIpPackets(data)
-}
-
-func (a *Agent) cliLog(isOpen bool, args ...any) {
-	if !isOpen {
-		return
-	}
-	a.devI.Log(fmt.Sprintln(args...))
-}
-
-func (a *Agent) monitorOutput() {
 
 	for {
-		select {
-		case <-a.sig:
-			return
-		default:
-			data := a.lwipStack.OutputIpPackets()
-			if data == nil {
-				a.finished()
-				return
-			}
-			a.devI.Stack2Dev(data)
+		conn, err := src.AcceptTCP()
+		if err != nil {
+			panic(err)
 		}
+		go relay(conn)
 	}
 }
 
-func (a *Agent) finished() {
-
-	if a.lwipStack == nil {
-		return
-	}
-	a.lwipStack.Close()
-	a.devI.StackClosed()
-	close(a.sig)
-	a.sig = nil
-	a.lwipStack = nil
-	a.devI = nil
+type TestProxySync struct {
+	Target string
 }
 
-func (a *Agent) listening() {
+type TestProxyAck struct {
+	Msg string
+}
+type duplexConn interface {
+	net.Conn
+	CloseWrite() error
+	CloseRead() error
+}
 
-	for {
-		select {
-		case <-a.sig:
-			return
-
-		default:
-			conn, err := a.lwipStack.Accept()
-			if err != nil {
-				a.finished()
-				return
-			}
-			a.relay(conn)
+func handleInput(conn net.Conn, input io.ReadCloser) {
+	defer func() {
+		if tcpConn, ok := conn.(core.TCPConn); ok {
+			tcpConn.CloseWrite()
+		} else {
+			conn.Close()
 		}
-	}
+		if tcpInput, ok := input.(duplexConn); ok {
+			tcpInput.CloseRead()
+		} else {
+			input.Close()
+		}
+	}()
+
+	io.Copy(conn, input)
 }
 
-func (a *Agent) relay(conn net.Conn) {
-	a.cliLog(true, "======>>>new conn:", conn.LocalAddr().String(), conn.RemoteAddr().String())
-	buf := make([]byte, 1024)
+func handleOutput(conn net.Conn, output io.WriteCloser) {
+	defer func() {
+		if tcpConn, ok := conn.(core.TCPConn); ok {
+			tcpConn.CloseRead()
+		} else {
+			conn.Close()
+		}
+		if tcpOutput, ok := output.(duplexConn); ok {
+			tcpOutput.CloseWrite()
+		} else {
+			output.Close()
+		}
+	}()
+
+	io.Copy(output, conn)
+}
+
+func relay(conn *net.TCPConn) {
+	buf := make([]byte, 1<<20)
 	n, err := conn.Read(buf)
-	a.cliLog(true, "======>>>new conn:", buf[:n], n, err)
+	if err != nil {
+		panic(err)
+	}
+
+	sync := &TestProxySync{}
+	if err := json.Unmarshal(buf[:n], sync); err != nil {
+		panic(err)
+	}
+	fmt.Println("new conn------>", sync.Target)
+
+	targetConn, err := net.Dial("tcp", sync.Target)
+	if err != nil {
+		data, _ := json.Marshal(&TestProxyAck{
+			Msg: err.Error(),
+		})
+		conn.Write(data)
+		fmt.Println(err)
+		return
+	}
+
+	data, _ := json.Marshal(&TestProxyAck{
+		Msg: "OK",
+	})
+	conn.Write(data)
+
+	go handleInput(conn, targetConn)
+	fmt.Println("start working------>", sync.Target)
+	handleOutput(conn, targetConn)
 }

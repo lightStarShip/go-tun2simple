@@ -55,19 +55,36 @@ func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
 }
 
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
-
+	var targetConn *net.TCPConn = nil
 	if RInst().NeedProxy(target.IP.String()) {
 		utils.LogInst().Infof("======>>>****** need a proxy for target:%s", target.String())
+		c, err := net.DialTCP("tcp", nil, &net.TCPAddr{
+			IP:   net.ParseIP(""),
+			Port: 18888,
+		})
+		if err != nil {
+			return err
+		}
+		if err := h.syncTarget(c); err != nil {
+			return err
+		}
+		targetConn = c
+
 	} else {
 		utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
+		c, err := net.DialTCP("tcp", nil, target)
+		if err != nil {
+			utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
+			return err
+		}
+		targetConn = c
 	}
 
-	c, err := net.Dial("tcp", target.String())
-	if err != nil {
-		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
-		return err
-	}
-	go h.handleInput(conn, c)
-	go h.handleOutput(conn, c)
+	go h.handleInput(conn, targetConn)
+	go h.handleOutput(conn, targetConn)
+	return nil
+}
+
+func (h *tcpHandler) syncTarget(tConn *net.TCPConn) error {
 	return nil
 }
