@@ -49,11 +49,11 @@ func (dh *dnsHandler) close() {
 }
 
 func (dh *dnsHandler) waitResponse() {
-	buf := core.NewBytes(core.BufSize)
+	buf := utils.NewBytes(utils.BufSize)
 
 	defer func() {
 		dh.close()
-		core.FreeBytes(buf)
+		utils.FreeBytes(buf)
 	}()
 
 	for {

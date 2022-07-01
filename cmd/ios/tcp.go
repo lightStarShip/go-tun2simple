@@ -24,8 +24,8 @@ func newTCPHandler() core.TCPConnHandler {
 }
 
 func relay(src, dst net.Conn) {
-	buf := core.NewBytes(32 * 1024)
-	defer core.FreeBytes(buf)
+	buf := utils.NewBytes(32 * 1024)
+	defer utils.FreeBytes(buf)
 	io.CopyBuffer(src, dst, buf)
 	src.Close()
 	dst.Close()
@@ -84,8 +84,8 @@ func (h *tcpHandler) syncTarget(target string, tConn *net.TCPConn) error {
 	if err != nil {
 		return err
 	}
-	buf := core.NewBytes(core.BufSize)
-	defer core.FreeBytes(buf)
+	buf := utils.NewBytes(utils.BufSize)
+	defer utils.FreeBytes(buf)
 	n, err := tConn.Read(buf)
 	if err != nil {
 		return err
