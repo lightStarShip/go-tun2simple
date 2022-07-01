@@ -21,7 +21,7 @@ func TestRuleLoad(t *testing.T) {
 	}
 	ret := parseRule(string(bts))
 	for s, item := range ret {
-		fmt.Println(s, item.String())
+		fmt.Println(s, item)
 	}
 }
 
@@ -43,17 +43,18 @@ func TestMatchOne1(t *testing.T) {
 	}
 	ret := parseRule(string(bts))
 	for _, re := range ret {
-		if re.MatchString(uid) {
-			fmt.Println("bingo:=>", re.String())
+		if ok, err := regexp.MatchString(re, uid); ok && err == nil {
+			fmt.Println("bingo:=>", re)
 			return
 		}
-		if re.String() == "\\.googleapis.com\\." {
-			fmt.Println("matching rex:->", re.String())
+		if re == "\\.googleapis.com\\." {
+			fmt.Println("matching rex:->", re)
 			return
 		}
 	}
 	fmt.Println("no match", uid)
 }
+
 func TestMatchOne2(t *testing.T) {
 
 	re, err := regexp.Compile("\\.googleapis.com\\.")

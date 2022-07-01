@@ -15,7 +15,7 @@ var (
 )
 
 type IPCache map[string]string
-type Regexps []*regexp.Regexp
+type Regexps []string
 
 func (ic *IPCache) String() string {
 	s := "\n-----ip list------"
@@ -51,8 +51,8 @@ func newRule() *Rule {
 
 func (r *Rule) isMatched(s string) bool {
 	for _, re := range r.matcher {
-		if re.MatchString(s) {
-			utils.LogInst().Infof("======>>>******matched by [%s] ", re.String())
+		if ok, err := regexp.MatchString(re, s); ok && err == nil {
+			utils.LogInst().Infof("======>>>******matched by [%s] ", re)
 			return true
 		}
 	}
@@ -68,7 +68,6 @@ func (r *Rule) NeedProxy(ip string) string {
 }
 
 func (r *Rule) dnsProc() {
-
 	utils.LogInst().Infof("======>>> rule manager start to work")
 	for {
 		select {
@@ -123,12 +122,7 @@ func parseRule(s string) Regexps {
 		if len(domain) < 4 {
 			continue
 		}
-		re, err := regexp.Compile(domain)
-		if err != nil {
-			utils.LogInst().Errorf("======>>> rule[%s] compile err:%v", domain, err)
-			continue
-		}
-		m = append(m, re)
+		m = append(m, domain)
 	}
 	utils.LogInst().Infof("======>>> setup rule size:%d\n", len(m))
 	return m
