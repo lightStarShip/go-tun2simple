@@ -50,5 +50,5 @@ func TestTcpDial(t *testing.T) {
 }
 
 func TestDnsLookup(t *testing.T) {
-	fmt.Println(net.LookupHost("rr4---sn-nx57ynld.googlevideo.com."))
+	fmt.Println(net.LookupHost(uid))
 }
