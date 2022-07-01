@@ -82,26 +82,7 @@ func (dh *dnsHandler) waitResponse() {
 			utils.LogInst().Errorf("======>>>dns proxy write back err:%s", err.Error())
 			continue
 		}
-		utils.LogInst().Debugf("======>>>dns[%d] answers:%s :=>", msg.ID, msg.Answers)
-		for i, question := range msg.Questions {
-			utils.LogInst().Infof("======>>>dns[%d] question[%d]:%s",
-				msg.ID, i, question.Name.String())
-		}
-		for i, answer := range msg.Answers {
-			ar, ok := answer.Body.(*dnsmessage.AResource)
-			if !ok {
-				utils.LogInst().Debugf("not ip answer typ:%d", answer.Body.GoString())
-				continue
-			}
-
-			utils.LogInst().Infof("======>>>dns[%d] answer[%d] ttl:%d name:%s->ip:%s",
-				msg.ID,
-				i,
-				answer.Header.TTL,
-				answer.Header.Name.String(),
-				net.IPv4(ar.A[0], ar.A[1], ar.A[2], ar.A[3]).String())
-
-		}
+		RInst().ParseDns(msg)
 	}
 }
 

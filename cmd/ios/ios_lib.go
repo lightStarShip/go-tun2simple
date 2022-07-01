@@ -52,10 +52,11 @@ func console(msg string, a ...any) {
 	_iosApp.dev.Log(log)
 }
 
-func NewTunnel(dev TunnelDev, logLevel int) (Tunnel, error) {
+func NewTunnel(dev TunnelDev, logLevel int8) (Tunnel, error) {
 	if dev == nil {
 		return nil, errors.New("Must provide a TUN writer")
 	}
+	utils.LogInst().InitParam(utils.LogLevel(logLevel), console)
 
 	core.RegisterOutputFn(func(data []byte) (int, error) {
 		//utils.LogInst().Debugf("======>>>RegisterOutputFn:%s", hex.EncodeToString(data))
@@ -69,7 +70,6 @@ func NewTunnel(dev TunnelDev, logLevel int) (Tunnel, error) {
 	core.RegisterUDPConnHandler(NewDnsHandler())
 	_iosApp = t
 
-	utils.LogInst().InitParam(utils.LogLevel(logLevel), console)
 	rules := dev.LoadRule()
 	RInst().Setup(rules)
 	return t, nil

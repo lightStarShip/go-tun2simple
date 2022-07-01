@@ -55,6 +55,13 @@ func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
 }
 
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
+
+	if RInst().NeedProxy(target.IP.String()) {
+		utils.LogInst().Infof("======>>>****** need a proxy for target:%s", target.String())
+	} else {
+		utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
+	}
+
 	c, err := net.Dial("tcp", target.String())
 	if err != nil {
 		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
@@ -62,6 +69,5 @@ func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	}
 	go h.handleInput(conn, c)
 	go h.handleOutput(conn, c)
-	utils.LogInst().Infof("new proxy connection for target: %s:%s", target.Network(), target.String())
 	return nil
 }
