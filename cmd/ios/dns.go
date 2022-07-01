@@ -32,7 +32,7 @@ func NewDnsHandler() core.UDPConnHandler {
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
 	if target.Port != COMMON_DNS_PORT {
-		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%d", target.String())
+		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%s", target.String())
 		return errors.New("can not handle non-DNS packet")
 	}
 	return nil
@@ -83,12 +83,30 @@ func (dh *dnsHandler) waitResponse() {
 			continue
 		}
 		utils.LogInst().Debugf("======>>>dns[%d] answers:%s :=>", msg.ID, msg.Answers)
+		for i, question := range msg.Questions {
+			utils.LogInst().Infof("======>>>dns[%d] question[%d]:%s",
+				msg.ID, i, question.Name.String())
+		}
+		for i, answer := range msg.Answers {
+			ar, ok := answer.Body.(*dnsmessage.AResource)
+			if !ok {
+				utils.LogInst().Debugf("not ip answer typ:%d", answer.Body.GoString())
+				continue
+			}
 
+			utils.LogInst().Infof("======>>>dns[%d] answer[%d] ttl:%d name:%s->ip:%s",
+				msg.ID,
+				i,
+				answer.Header.TTL,
+				answer.Header.Name.String(),
+				net.IPv4(ar.A[0], ar.A[1], ar.A[2], ar.A[3]).String())
+
+		}
 	}
 }
 
 func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
-	utils.LogInst().Infof("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
+	utils.LogInst().Debugf("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
 	msg := &dnsmessage.Message{}
 	if err := msg.Unpack(data); err != nil {
 		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error())

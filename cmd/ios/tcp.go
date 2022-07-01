@@ -57,7 +57,7 @@ func (h *tcpHandler) handleOutput(conn net.Conn, output io.WriteCloser) {
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	c, err := net.Dial("tcp", target.String())
 	if err != nil {
-		utils.LogInst().Errorf("======>>> err:", target.String(), err)
+		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
 		return err
 	}
 	go h.handleInput(conn, c)

@@ -17,7 +17,7 @@ func init() {
 	ticker := time.NewTicker(time.Minute * 1)
 	go func() {
 		for range ticker.C {
-			fmt.Println("======>>> release memory for ios")
+			utils.LogInst().Infof("======>>> release memory for ios")
 			debug.FreeOSMemory()
 		}
 	}()
@@ -44,6 +44,7 @@ type iosApp struct {
 type TunnelDev interface {
 	io.WriteCloser
 	Log(s string)
+	LoadRule() string
 }
 
 func console(msg string, a ...any) {
@@ -51,25 +52,26 @@ func console(msg string, a ...any) {
 	_iosApp.dev.Log(log)
 }
 
-func NewTunnel(tunWriter TunnelDev, logLevel int) (Tunnel, error) {
-	if tunWriter == nil {
+func NewTunnel(dev TunnelDev, logLevel int) (Tunnel, error) {
+	if dev == nil {
 		return nil, errors.New("Must provide a TUN writer")
 	}
 
 	core.RegisterOutputFn(func(data []byte) (int, error) {
 		//utils.LogInst().Debugf("======>>>RegisterOutputFn:%s", hex.EncodeToString(data))
-		return tunWriter.Write(data)
+		return dev.Write(data)
 	})
 	lwipStack := core.Inst()
 	t := &iosApp{
 		lwipStack,
-		tunWriter}
+		dev}
 	core.RegisterTCPConnHandler(newTCPHandler())
 	core.RegisterUDPConnHandler(NewDnsHandler())
 	_iosApp = t
 
 	utils.LogInst().InitParam(utils.LogLevel(logLevel), console)
-
+	rules := dev.LoadRule()
+	RInst().Setup(rules)
 	return t, nil
 }
 
