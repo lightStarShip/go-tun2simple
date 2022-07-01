@@ -14,7 +14,7 @@ var (
 	_rInst *Rule
 )
 
-type IPCache map[string]bool
+type IPCache map[string]string
 type Regexps []*regexp.Regexp
 
 func (ic *IPCache) String() string {
@@ -59,8 +59,12 @@ func (r *Rule) isMatched(s string) bool {
 	return false
 }
 
-func (r *Rule) NeedProxy(ip string) bool {
-	return r.ips[ip]
+func (r *Rule) NeedProxy(ip string) string {
+	s, ok := r.ips[ip]
+	if !ok {
+		return ""
+	}
+	return s
 }
 
 func (r *Rule) dnsProc() {
@@ -70,21 +74,22 @@ func (r *Rule) dnsProc() {
 		select {
 		case msg := <-r.msgChan:
 			utils.LogInst().Debugf("======>>>dns[%d] answers:%v :=>", msg.ID, msg.Answers)
-			var needProcess = false
+			var matchedDomain = ""
 			for i, question := range msg.Questions {
 				domain, typ := question.Name.String(), question.Type.String()
 				utils.LogInst().Debugf("======>>>dns[%d] question[%d]:%s typ:%s",
 					msg.ID, i, domain, typ)
 
 				if r.isMatched(domain) {
-					needProcess = true
+					matchedDomain = domain
 					utils.LogInst().Infof("======>>>[%d]******domain[%s] matched", msg.ID, domain)
+					break
 				} else {
 					utils.LogInst().Infof("======>>>[%d]++++++domain[%s] not matched", msg.ID, domain)
 				}
 			}
 
-			if !needProcess {
+			if len(matchedDomain) == 0 {
 				utils.LogInst().Infof("======>>>this domain no need to process:%v", msg.Questions)
 				continue
 			}
@@ -97,7 +102,7 @@ func (r *Rule) dnsProc() {
 				}
 				ip := net.IPv4(ar.A[0], ar.A[1], ar.A[2], ar.A[3]).String()
 				utils.LogInst().Infof("======>>>>******[%d]new ip[%s] cached:", msg.ID, ip)
-				r.ips[ip] = true
+				r.ips[ip] = matchedDomain
 			}
 		}
 	}

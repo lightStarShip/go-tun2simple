@@ -18,7 +18,7 @@ func TestTcpDial(t *testing.T) {
 	}
 
 	data, err := json.Marshal(&test.TestProxySync{
-		Target: "www.baidu.com:443",
+		Target: "r4---sn-vgqsknls.googlevideo.com.:443",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -42,13 +42,12 @@ func TestTcpDial(t *testing.T) {
 	if ack.Msg != "OK" {
 		t.Fatal("---------> not ok", ack.Msg)
 	}
-
-	c.Write(data)
-	c.Write(data)
-	c.Write(data)
-	c.Write(data)
 }
 
 func TestDnsLookup(t *testing.T) {
 	fmt.Println(net.LookupHost(uid))
+}
+
+func TestDnsLookIP(t *testing.T) {
+	fmt.Println(net.LookupAddr(uid))
 }

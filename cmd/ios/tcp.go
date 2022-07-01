@@ -24,7 +24,9 @@ func newTCPHandler() core.TCPConnHandler {
 }
 
 func relay(src, dst net.Conn) {
-	io.Copy(src, dst)
+	buf := core.NewBytes(32 * 1024)
+	defer core.FreeBytes(buf)
+	io.CopyBuffer(src, dst, buf)
 	src.Close()
 	dst.Close()
 }
@@ -32,28 +34,32 @@ func relay(src, dst net.Conn) {
 func (h *tcpHandler) Handle(conn net.Conn, target *net.TCPAddr) error {
 	var targetConn *net.TCPConn = nil
 
-	if RInst().NeedProxy(target.IP.String()) {
-		utils.LogInst().Infof("======>>>****** need a proxy for target:%s", target.String())
+	matched := RInst().NeedProxy(target.IP.String())
+	if len(matched) > 0 {
+		utils.LogInst().Infof("======>>>****** prepare to proxy for target:%s", target.String())
 		c, err := net.DialTCP("tcp", nil, &net.TCPAddr{
 			IP:   net.ParseIP("149.248.37.162"),
 			Port: 18888,
 		})
 		if err != nil {
+			utils.LogInst().Errorf("======>>>proxy for[%s] server err :%v", target.String(), err)
 			return err
 		}
-
-		if err := h.syncTarget(target.String(), c); err != nil {
+		nameTarget := fmt.Sprintf("%s:%d", matched, target.Port)
+		if err := h.syncTarget(nameTarget, c); err != nil {
 			c.Close()
-			utils.LogInst().Errorf("======>>>proxy sync target[%s] err:%v", target.String(), err)
+			conn.Close()
+			utils.LogInst().Errorf("======>>>proxy sync target[%s=>%s] err:%v", target.String(), nameTarget, err)
 			return err
 		}
 
 		targetConn = c
-		utils.LogInst().Infof("======>>> proxy for target:%s", target.String())
+		utils.LogInst().Infof("======>>> proxy for target:[%s=>%s]", target.String(), nameTarget)
 
 	} else {
 		c, err := net.DialTCP("tcp", nil, target)
 		if err != nil {
+			conn.Close()
 			utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
 			return err
 		}
@@ -78,8 +84,8 @@ func (h *tcpHandler) syncTarget(target string, tConn *net.TCPConn) error {
 	if err != nil {
 		return err
 	}
-
-	buf := make([]byte, 1024)
+	buf := core.NewBytes(core.BufSize)
+	defer core.FreeBytes(buf)
 	n, err := tConn.Read(buf)
 	if err != nil {
 		return err
