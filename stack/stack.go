@@ -1,69 +1,50 @@
 package stack
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"net"
+	"sync"
+	"syscall"
+	"time"
 )
 
-func SimpleStack() {
-	src, err := net.ListenTCP("tcp", &net.TCPAddr{
-		IP:   nil,
-		Port: 18888,
+var (
+	_once sync.Once
+	_inst SimpleStack
+)
+
+type ConnProtector func(fd uintptr)
+type TunDev interface {
+	WriteToTun(p []byte) (n int, err error)
+	TunClosed() error
+	Protect(fd int32) bool
+}
+type Wallet interface {
+	Address() string
+	AesKey() []byte
+	MinerNetAddr() string
+}
+
+type SimpleStack interface {
+	SetupStack(dev TunDev, w Wallet, dnsRule string) error
+	WriteToStack(p []byte) (n int, err error)
+}
+
+func Inst() SimpleStack {
+	_once.Do(func() {
+		_inst = newStackV1()
 	})
-	if err != nil {
-		panic(err)
-	}
-
-	for {
-		conn, err := src.AcceptTCP()
-		if err != nil {
-			panic(err)
-		}
-		go relay(conn)
-	}
+	return _inst
 }
 
-type TestProxySync struct {
-	Target string
-}
-
-type TestProxyAck struct {
-	Msg string
-}
-
-func relay(conn *net.TCPConn) {
-	buf := make([]byte, 1<<20)
-	n, err := conn.Read(buf)
-	if err != nil {
-		panic(err)
+func SafeConn(network, rAddr string, connSaver ConnProtector, timeOut time.Duration) (net.Conn, error) {
+	d := &net.Dialer{
+		Timeout: timeOut,
+		Control: func(network, address string, c syscall.RawConn) error {
+			if connSaver != nil {
+				return c.Control(connSaver)
+			}
+			return nil
+		},
 	}
-
-	sync := &TestProxySync{}
-	if err := json.Unmarshal(buf[:n], sync); err != nil {
-		panic(err)
-	}
-	fmt.Println("new conn------>", sync.Target)
-
-	targetConn, err := net.Dial("tcp", sync.Target)
-	if err != nil {
-		data, _ := json.Marshal(&TestProxyAck{
-			Msg: err.Error(),
-		})
-		conn.Write(data)
-		fmt.Println(err)
-		return
-	}
-
-	data, _ := json.Marshal(&TestProxyAck{
-		Msg: "OK",
-	})
-	conn.Write(data)
-
-	go io.Copy(conn, targetConn)
-	fmt.Println("start working------>", sync.Target)
-	io.Copy(targetConn, conn)
-	targetConn.Close()
-	conn.Close()
+	return d.Dial(network, rAddr)
 }

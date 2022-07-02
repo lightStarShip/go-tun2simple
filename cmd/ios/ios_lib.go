@@ -3,9 +3,8 @@ package tun2Simple
 import (
 	"errors"
 	"fmt"
-	"github.com/lightStarShip/go-tun2simple/core"
+	"github.com/lightStarShip/go-tun2simple/stack"
 	"github.com/lightStarShip/go-tun2simple/utils"
-	"io"
 	"runtime/debug"
 	"time"
 )
@@ -23,58 +22,25 @@ func init() {
 	}()
 }
 
-const (
-	COMMON_DNS_PORT = 53
-	dnsHeaderLength = 12
-	dnsMaskQr       = uint8(0x80)
-	dnsMaskTc       = uint8(0x02)
-	dnsMaskRcode    = uint8(0x0F)
-)
-
-var _iosApp *iosApp = nil
-
-type Tunnel interface {
-	Write(data []byte) (int, error)
-}
-
-type iosApp struct {
-	lwipStack core.LWIPStack
-	dev       TunnelDev
-}
-type TunnelDev interface {
-	io.WriteCloser
+type ExtensionI interface {
+	stack.TunDev
+	stack.Wallet
 	Log(s string)
 	LoadRule() string
 }
 
-func console(msg string, a ...any) {
-	log := fmt.Sprintf(msg, a...)
-	_iosApp.dev.Log(log)
-}
-
-func NewTunnel(dev TunnelDev, logLevel int8) (Tunnel, error) {
-	if dev == nil {
-		return nil, errors.New("Must provide a TUN writer")
+func InitEx(exi ExtensionI, logLevel int8) error {
+	if exi == nil {
+		return errors.New("invalid tun device")
 	}
-	utils.LogInst().InitParam(utils.LogLevel(logLevel), console)
-
-	core.RegisterOutputFn(func(data []byte) (int, error) {
-		//utils.LogInst().Debugf("======>>>RegisterOutputFn:%s", hex.EncodeToString(data))
-		return dev.Write(data)
+	utils.LogInst().InitParam(utils.LogLevel(logLevel), func(msg string, args ...any) {
+		log := fmt.Sprintf(msg, args...)
+		exi.Log(log)
 	})
-	lwipStack := core.Inst()
-	t := &iosApp{
-		lwipStack,
-		dev}
-	core.RegisterTCPConnHandler(newTCPHandler())
-	core.RegisterUDPConnHandler(NewDnsHandler())
-	_iosApp = t
-
-	rules := dev.LoadRule()
-	RInst().Setup(rules)
-	return t, nil
+	rules := exi.LoadRule()
+	return stack.Inst().SetupStack(exi, exi, rules)
 }
 
-func (t *iosApp) Write(data []byte) (int, error) {
-	return t.lwipStack.Write(data)
+func WritePackets(data []byte) (int, error) {
+	return stack.Inst().WriteToStack(data)
 }

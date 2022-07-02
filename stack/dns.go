@@ -1,4 +1,4 @@
-package tun2Simple
+package stack
 
 import (
 	"errors"
@@ -9,24 +9,42 @@ import (
 	"sync"
 )
 
+const (
+	COMMON_DNS_PORT = 53
+	dnsHeaderLength = 12
+	dnsMaskQr       = uint8(0x80)
+	dnsMaskTc       = uint8(0x02)
+	dnsMaskRcode    = uint8(0x0F)
+)
+
 type dnsHandler struct {
 	sync.Mutex
 	pivot *net.UDPConn
 	cache map[uint16]core.UDPConn
 }
 
-func NewDnsHandler() core.UDPConnHandler {
+func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := net.ListenUDP("udp4", bindAddr)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
+	raw, err := pc.SyscallConn()
+	if err != nil {
+		return nil, err
+	}
+	//TODO:: need a full test
+	if err := raw.Control(saver); err != nil {
+		return nil, err
+	}
+
 	handler := &dnsHandler{
 		pivot: pc,
 		cache: make(map[uint16]core.UDPConn),
 	}
 	go handler.waitResponse()
-	return handler
+
+	return handler, nil
 }
 
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
