@@ -13,8 +13,8 @@ const (
 )
 
 func (s1 *stackV1) directRelay(conn net.Conn, target *net.TCPAddr) error {
-	//targetConn, err := SafeConn("tcp", target.String(), s1.connSaver, DialTimeOut)
-	targetConn, err := net.DialTCP("tcp", nil, target)
+	targetConn, err := SafeConn("tcp", target.String(), s1.connSaver, DialTimeOut)
+	//targetConn, err := net.DialTCP("tcp", nil, target)
 	if err != nil {
 		_ = conn.Close()
 		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
