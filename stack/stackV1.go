@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"github.com/redeslab/go-simple/account"
@@ -55,7 +56,27 @@ func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {
 func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	matched := RInst().NeedProxy(target.IP.String())
 	if len(matched) > 0 {
-		return s1.SimpleRelay(conn, target, matched)
+		nameTarget := fmt.Sprintf("%s:%d", matched, target.Port)
+		tarConn, err := s1.setupSimpleConn(nameTarget)
+		if err != nil {
+			_ = conn.Close()
+			utils.LogInst().Errorf("======>>>proxy sync target[%s=>%s] err:%v", target.String(), nameTarget, err)
+			return err
+		}
+		utils.LogInst().Infof("======>>> proxy for target:[%s=>%s]", target.String(), nameTarget)
+
+		go s1.relay(conn, tarConn)
+		return nil
 	}
-	return s1.directRelay(conn, target)
+
+	targetConn, err := SafeConn("tcp", target.String(), s1.connSaver, DialTimeOut)
+	if err != nil {
+		_ = conn.Close()
+		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
+		return err
+	}
+	utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
+
+	go s1.relay(conn, targetConn)
+	return nil
 }
