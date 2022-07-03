@@ -19,7 +19,7 @@ func (s1 *stackV1) relay(conn, target net.Conn) {
 }
 
 func relay(src, dst net.Conn) {
-	buf := utils.NewBytes(network.BuffSize)
+	buf := utils.NewBytes(network.MTU)
 	defer utils.FreeBytes(buf)
 	defer src.Close()
 	defer dst.Close()
