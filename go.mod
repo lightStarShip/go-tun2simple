@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/google/gopacket v1.1.19
-	github.com/redeslab/go-simple v1.0.4
+	github.com/redeslab/go-simple v1.0.5
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 )
 

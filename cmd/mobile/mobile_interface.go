@@ -10,13 +10,13 @@ import (
 )
 
 func init() {
-	// Apple VPN extensions have a memory limit of 15MB. Conserve memory by increasing garbage
+	// Apple VPN extensions have a memory limit of 50MB. Conserve memory by increasing garbage
 	// collection frequency and returning memory to the OS every minute.
 	debug.SetGCPercent(10)
 	ticker := time.NewTicker(time.Minute * 1)
 	go func() {
 		for range ticker.C {
-			utils.LogInst().Infof("======>>> release memory for ios")
+			utils.LogInst().Infof("======>>> release memory for garbage collection")
 			debug.FreeOSMemory()
 		}
 	}()
