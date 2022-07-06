@@ -16,8 +16,9 @@ type ConnProtector func(fd uintptr)
 type TunDev interface {
 	WriteToTun(p []byte) (n int, err error)
 	TunClosed() error
-	Protect(fd int32) bool
+	SafeConn(fd int32) bool
 }
+
 type Wallet interface {
 	Address() string
 	AesKey() []byte
