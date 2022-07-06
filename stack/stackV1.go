@@ -72,7 +72,7 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	targetConn, err := SafeConn("tcp", target.String(), s1.connSaver, DialTimeOut)
 	if err != nil {
 		_ = conn.Close()
-		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), s1.connSaver, err)
+		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
 		return err
 	}
 	utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())

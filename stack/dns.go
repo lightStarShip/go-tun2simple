@@ -46,7 +46,7 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 		cache: make(map[uint16]core.UDPConn),
 	}
 	go handler.waitResponse()
-
+	utils.LogInst().Debugf("======>>> create dns handler[%s] success:=>", pc.LocalAddr().String())
 	return handler, nil
 }
 
@@ -70,6 +70,8 @@ func (dh *dnsHandler) close() {
 }
 
 func (dh *dnsHandler) waitResponse() {
+	utils.LogInst().Infof("======>>> dns wait thread start work......")
+	defer utils.LogInst().Infof("======>>> dns wait thread off work......")
 	buf := utils.NewBytes(utils.BufSize)
 
 	defer func() {
