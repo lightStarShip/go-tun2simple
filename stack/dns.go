@@ -27,14 +27,17 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
 	pc, err := net.ListenUDP("udp4", bindAddr)
 	if err != nil {
+		utils.LogInst().Errorf("======>>>DNS ListenUDP err:=>%s", err.Error())
 		return nil, err
 	}
 	raw, err := pc.SyscallConn()
 	if err != nil {
+		utils.LogInst().Errorf("======>>>DNS SyscallConn err:=>%s", err.Error())
 		return nil, err
 	}
 	//TODO:: need a full test
 	if err := raw.Control(saver); err != nil {
+		utils.LogInst().Errorf("======>>>DNS raw Control err:=>%s", err.Error())
 		return nil, err
 	}
 
