@@ -25,7 +25,7 @@ type stackV1 struct {
 	minerAddr string
 }
 
-func (s1 *stackV1) SetupStack(dev TunDev, w Wallet, rules string) error {
+func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	core.RegisterOutputFn(func(data []byte) (int, error) {
 		return dev.WriteToTun(data)
 	})
@@ -52,7 +52,10 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet, rules string) error {
 		return err
 	}
 	core.RegisterUDPConnHandler(dns)
+	rules := dev.LoadRule()
 	RInst().Setup(rules)
+	ips := dev.LoadIps()
+	ByPassInst().Load(ips)
 	return nil
 }
 
@@ -61,16 +64,29 @@ func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {
 }
 
 func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
-	matched := RInst().NeedProxy(target.IP.String())
-	if len(matched) > 0 {
-		nameTarget := fmt.Sprintf("%s:%d", matched, target.Port)
-		tarConn, err := s1.setupSimpleConn(nameTarget)
+	dnsMatched := RInst().NeedProxy(target.IP.String())
+	ipMatched := ByPassInst().Hit(target.IP)
+
+	var targetMatchedNetAddr = ""
+	var matched = false
+	if len(dnsMatched) > 0 {
+		matched = true
+		targetMatchedNetAddr = fmt.Sprintf("%s:%d", dnsMatched, target.Port)
+		utils.LogInst().Infof("======>>> dns matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+
+	} else if ipMatched {
+		matched = true
+		targetMatchedNetAddr = target.String()
+		utils.LogInst().Infof("======>>> ip matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+	}
+
+	if matched {
+		tarConn, err := s1.setupSimpleConn(targetMatchedNetAddr)
 		if err != nil {
 			_ = conn.Close()
-			utils.LogInst().Errorf("======>>>proxy sync target[%s=>%s] err:%v", target.String(), nameTarget, err)
+			utils.LogInst().Errorf("======>>>proxy sync target[%s=>%s] err:%v", target.String(), targetMatchedNetAddr, err)
 			return err
 		}
-		utils.LogInst().Infof("======>>> proxy for target:[%s=>%s]", target.String(), nameTarget)
 
 		go s1.relay(conn, tarConn)
 		return nil

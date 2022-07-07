@@ -17,6 +17,8 @@ type TunDev interface {
 	WriteToTun(p []byte) (n int, err error)
 	TunClosed() error
 	SafeConn(fd int32) bool
+	LoadRule() string
+	LoadIps() string
 }
 
 type Wallet interface {
@@ -26,7 +28,7 @@ type Wallet interface {
 }
 
 type SimpleStack interface {
-	SetupStack(dev TunDev, w Wallet, dnsRule string) error
+	SetupStack(dev TunDev, w Wallet) error
 	WriteToStack(p []byte) (n int, err error)
 }
 

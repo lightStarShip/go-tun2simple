@@ -26,7 +26,6 @@ type ExtensionI interface {
 	stack.TunDev
 	stack.Wallet
 	Log(s string)
-	LoadRule() string
 }
 
 func InitEx(exi ExtensionI, logLevel int8) error {
@@ -37,8 +36,7 @@ func InitEx(exi ExtensionI, logLevel int8) error {
 		log := fmt.Sprintf(msg, args...)
 		exi.Log(log)
 	})
-	rules := exi.LoadRule()
-	return stack.Inst().SetupStack(exi, exi, rules)
+	return stack.Inst().SetupStack(exi, exi)
 }
 
 func WritePackets(data []byte) (int, error) {
