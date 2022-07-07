@@ -65,7 +65,7 @@ func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {
 
 func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	dnsMatched := RInst().NeedProxy(target.IP.String())
-	ipMatched := ByPassInst().Hit(target.IP)
+	ipMatched := ByPassInst().IsInnerIP(target.IP)
 
 	var targetMatchedNetAddr = ""
 	var matched = false
@@ -74,7 +74,7 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 		targetMatchedNetAddr = fmt.Sprintf("%s:%d", dnsMatched, target.Port)
 		utils.LogInst().Infof("======>>> dns matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
 
-	} else if ipMatched {
+	} else if ipMatched == false {
 		matched = true
 		targetMatchedNetAddr = target.String()
 		utils.LogInst().Infof("======>>> ip matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)

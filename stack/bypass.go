@@ -39,7 +39,7 @@ func (bp *ByPassIPs) Load(IPS string) {
 	fmt.Printf("====By Pass===>Total bypass ips:%d groups:%d \n", len(bp.IP), len(bp.Masks))
 }
 
-func (bp *ByPassIPs) Hit(ip net.IP) bool {
+func (bp *ByPassIPs) IsInnerIP(ip net.IP) bool {
 
 	bp.RLock()
 	defer bp.RUnlock()
@@ -51,7 +51,7 @@ func (bp *ByPassIPs) Hit(ip net.IP) bool {
 	for _, mask := range bp.Masks {
 		maskIP := ip.Mask(mask)
 		if _, ok := bp.IP[maskIP.String()]; ok {
-			fmt.Printf("\n------>>>Hit success ip:%s->ip mask:%s\n", ip, maskIP)
+			fmt.Printf("\n------>>>IsInnerIP success ip:%s->ip mask:%s\n", ip, maskIP)
 			return true
 		}
 	}
