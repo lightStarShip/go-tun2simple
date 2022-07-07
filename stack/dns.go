@@ -10,11 +10,12 @@ import (
 )
 
 const (
-	COMMON_DNS_PORT = 53
-	dnsHeaderLength = 12
-	dnsMaskQr       = uint8(0x80)
-	dnsMaskTc       = uint8(0x02)
-	dnsMaskRcode    = uint8(0x0F)
+	COMMON_DNS_PORT  = 53
+	COMMON_DNS_PORT2 = 443
+	dnsHeaderLength  = 12
+	dnsMaskQr        = uint8(0x80)
+	dnsMaskTc        = uint8(0x02)
+	dnsMaskRcode     = uint8(0x0F)
 )
 
 type dnsHandler struct {
@@ -52,7 +53,7 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
-	if target.Port != COMMON_DNS_PORT {
+	if target.Port != COMMON_DNS_PORT && target.Port != COMMON_DNS_PORT2 {
 		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%s", target.String())
 		return errors.New("can not handle non-DNS packet")
 	}
