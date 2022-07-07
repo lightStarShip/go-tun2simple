@@ -81,10 +81,10 @@ func (r *Rule) dnsProc() {
 
 				if r.isMatched(domain) {
 					matchedDomain = domain
-					utils.LogInst().Infof("======>>>[%d]******domain[%s] matched", msg.ID, domain)
+					utils.LogInst().Infof("======>>>[%d]******domain[%s]******matched", msg.ID, domain)
 					break
 				} else {
-					utils.LogInst().Infof("======>>>[%d]++++++domain[%s] not matched", msg.ID, domain)
+					utils.LogInst().Infof("======>>>[%d]++++++domain[%s] ++++++not matched", msg.ID, domain)
 				}
 			}
 
