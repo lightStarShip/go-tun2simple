@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"encoding/hex"
 	"errors"
 	"github.com/lightStarShip/go-tun2simple/core"
 	"github.com/lightStarShip/go-tun2simple/utils"
@@ -12,6 +13,7 @@ import (
 const (
 	COMMON_DNS_PORT  = 53
 	COMMON_DNS_PORT2 = 443
+	COMMON_DNS_PORT3 = 853
 	dnsHeaderLength  = 12
 	dnsMaskQr        = uint8(0x80)
 	dnsMaskTc        = uint8(0x02)
@@ -53,7 +55,9 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
-	if target.Port != COMMON_DNS_PORT && target.Port != COMMON_DNS_PORT2 {
+	if target.Port != COMMON_DNS_PORT &&
+		target.Port != COMMON_DNS_PORT2 &&
+		target.Port != COMMON_DNS_PORT3 {
 		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%s", target.String())
 		return errors.New("can not handle non-DNS packet")
 	}
@@ -88,7 +92,7 @@ func (dh *dnsHandler) waitResponse() {
 		}
 		msg := &dnsmessage.Message{}
 		if err := msg.Unpack(buf[:n]); err != nil {
-			utils.LogInst().Errorf("======>>>Unpack dns response err:%s", err.Error())
+			utils.LogInst().Errorf("======>>>Unpack dns response err:%s\n%s\n", err.Error(), hex.EncodeToString(buf[:n]))
 			continue
 		}
 		dh.Lock()
@@ -112,6 +116,12 @@ func (dh *dnsHandler) waitResponse() {
 
 func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
+	_, err := dh.pivot.WriteToUDP(data, addr)
+	if err != nil {
+		utils.LogInst().Errorf("======>>>dns forward err:%s\n%s\n", err.Error(), hex.EncodeToString(data))
+		return err
+	}
+
 	msg := &dnsmessage.Message{}
 	if err := msg.Unpack(data); err != nil {
 		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error())
@@ -122,12 +132,6 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 	dh.Lock()
 	dh.cache[msg.ID] = conn
 	dh.Unlock()
-
-	_, err := dh.pivot.WriteToUDP(data, addr)
-	if err != nil {
-		utils.LogInst().Errorf("======>>>dns forward err:%s", err.Error())
-		return err
-	}
 
 	return nil
 }

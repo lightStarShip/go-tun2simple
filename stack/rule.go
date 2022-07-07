@@ -45,10 +45,6 @@ func newRule() *Rule {
 		msgChan: make(chan *dnsmessage.Message, 1024),
 		ips:     make(IPCache),
 	}
-	r.ips["8.8.8.8"] = "8.8.8.8"
-	r.ips["8.8.4.4"] = "8.8.4.4"
-	r.ips["1.1.1.1"] = "1.1.1.1"
-	r.ips["172.217.163.54"] = "172.217.163.54"
 	go r.dnsProc()
 	return r
 }
