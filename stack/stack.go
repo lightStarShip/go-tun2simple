@@ -21,7 +21,7 @@ type TunDev interface {
 
 type Wallet interface {
 	Address() string
-	AesKey() []byte
+	AesKeyBase64() string
 	MinerNetAddr() string
 }
 

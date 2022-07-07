@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
 	"github.com/lightStarShip/go-tun2simple/utils"
@@ -33,7 +34,13 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet, rules string) error {
 		dev.SafeConn(int32(fd))
 	}
 	s1.selfId = account.ID(w.Address())
-	s1.aesKey = w.AesKey()
+	aesStr := w.AesKeyBase64()
+	key, err := hex.DecodeString(aesStr)
+	if err != nil {
+		utils.LogInst().Errorf("======>>> stack param invalid aes key:%s", aesStr)
+		return err
+	}
+	s1.aesKey = key
 	s1.minerAddr = w.MinerNetAddr()
 
 	utils.LogInst().Debugf("======>>> stack param: sid:%s mid:%s", s1.selfId, s1.minerAddr)
