@@ -55,12 +55,16 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
-	if target.Port != COMMON_DNS_PORT &&
-		target.Port != COMMON_DNS_PORT2 &&
-		target.Port != COMMON_DNS_PORT3 {
+	if target.Port != COMMON_DNS_PORT {
 		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%s", target.String())
 		return errors.New("can not handle non-DNS packet")
 	}
+	//TODO
+	/*
+		&&
+				target.Port != COMMON_DNS_PORT2 &&
+				target.Port != COMMON_DNS_PORT3
+	*/
 	return nil
 }
 
@@ -124,7 +128,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 
 	msg := &dnsmessage.Message{}
 	if err := msg.Unpack(data); err != nil {
-		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error())
+		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error(), hex.EncodeToString(data))
 		return err
 	}
 	utils.LogInst().Debugf("======>>>dns[%d] questions:%s =>", msg.ID, msg.Questions)
