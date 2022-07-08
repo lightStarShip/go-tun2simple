@@ -26,11 +26,11 @@ func relay(src, dst net.Conn) {
 
 	_, err := io.CopyBuffer(src, dst, buf)
 	if err != nil {
-		utils.LogInst().Warnf("======>>> direct relay finalized:%s", err.Error())
+		utils.LogInst().Warnf("======>>> relay finalized by err:%s", err.Error())
 		return
 	}
 
-	utils.LogInst().Debugf("======>>> direct relay finished:[%s--->%s]===>[%s--->%s]",
+	utils.LogInst().Debugf("======>>> relay finished:[%s--->%s]===>[%s--->%s]",
 		src.LocalAddr().String(),
 		src.RemoteAddr().String(),
 		dst.LocalAddr().String(),
