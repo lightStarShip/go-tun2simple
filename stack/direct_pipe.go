@@ -2,7 +2,6 @@ package stack
 
 import (
 	"github.com/lightStarShip/go-tun2simple/utils"
-	"github.com/redeslab/go-simple/network"
 	"io"
 	"net"
 	"time"
@@ -10,6 +9,7 @@ import (
 
 const (
 	DialTimeOut = 5 * time.Second
+	ConnBufSize = 1 << 20
 )
 
 func (s1 *stackV1) relay(conn, target net.Conn) {
@@ -19,7 +19,7 @@ func (s1 *stackV1) relay(conn, target net.Conn) {
 }
 
 func relay(src, dst net.Conn) {
-	buf := utils.NewBytes(network.MTU)
+	buf := utils.NewBytes(ConnBufSize)
 	defer utils.FreeBytes(buf)
 	defer src.Close()
 	defer dst.Close()
