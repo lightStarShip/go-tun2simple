@@ -9,17 +9,11 @@ import (
 
 const (
 	DialTimeOut = 5 * time.Second
-	ConnBufSize = 1 << 20
+	MinMtuVal   = 1 << 15
 )
 
-func (s1 *stackV1) relay(conn, target net.Conn) {
-	go relay(conn, target)
-	relay(target, conn)
-
-}
-
-func relay(src, dst net.Conn) {
-	buf := utils.NewBytes(ConnBufSize)
+func (s1 *stackV1) relay(src, dst net.Conn) {
+	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
 	defer src.Close()
 	defer dst.Close()

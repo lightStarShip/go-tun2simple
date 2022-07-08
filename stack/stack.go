@@ -19,6 +19,7 @@ type TunDev interface {
 	SafeConn(fd int32) bool
 	LoadRule() string
 	LoadIps() string
+	MTU() int
 }
 
 type Wallet interface {

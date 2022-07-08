@@ -23,6 +23,7 @@ type stackV1 struct {
 	selfId    account.ID
 	aesKey    []byte
 	minerAddr string
+	mtu       int
 }
 
 func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
@@ -42,6 +43,10 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	}
 	s1.aesKey = key
 	s1.minerAddr = w.MinerNetAddr()
+	s1.mtu = dev.MTU()
+	if s1.mtu < MinMtuVal {
+		return fmt.Errorf("======>>> too small mtu")
+	}
 
 	utils.LogInst().Debugf("======>>> stack param: sid:%s mid:%s", s1.selfId, s1.minerAddr)
 
@@ -89,6 +94,7 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 		}
 
 		go s1.relay(conn, tarConn)
+		go s1.relay(tarConn, conn)
 		return nil
 	}
 
@@ -101,5 +107,6 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
 
 	go s1.relay(conn, targetConn)
+	go s1.relay(targetConn, conn)
 	return nil
 }
