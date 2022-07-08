@@ -1,15 +1,14 @@
 package stack
 
 import (
-	"fmt"
+	"github.com/lightStarShip/go-tun2simple/utils"
 	"net"
 	"strings"
 	"sync"
 )
 
 type ByPassIPs struct {
-	Masks map[string]net.IPMask
-	IP    map[string]struct{}
+	ipMask map[string]net.IPMask
 	sync.RWMutex
 	global bool
 }
@@ -20,26 +19,28 @@ var once sync.Once
 func ByPassInst() *ByPassIPs {
 	once.Do(func() {
 		_instance = &ByPassIPs{
-			Masks: make(map[string]net.IPMask),
-			IP:    make(map[string]struct{}),
+			ipMask: make(map[string]net.IPMask),
 		}
 	})
 	return _instance
 }
 
 func (bp *ByPassIPs) Load(IPS string) {
-	bp.IP = make(map[string]struct{})
-	bp.Masks = make(map[string]net.IPMask)
+	bp.ipMask = make(map[string]net.IPMask)
+
 	array := strings.Split(IPS, "\n")
 	for _, cidr := range array {
-		ip, subNet, _ := net.ParseCIDR(cidr)
-		bp.IP[ip.String()] = struct{}{}
-		bp.Masks[subNet.Mask.String()] = subNet.Mask
+		ip, subNet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			utils.LogInst().Debugf("=======>>> invalid  bypass cidr %s\n", cidr)
+			continue
+		}
+		bp.ipMask[ip.String()] = subNet.Mask
 	}
-	fmt.Printf("====By Pass===>Total bypass ips:%d groups:%d \n", len(bp.IP), len(bp.Masks))
+	utils.LogInst().Debugf("=======>>> Total bypass :%d \n", len(bp.ipMask))
 }
 
-func (bp *ByPassIPs) IsInnerIP(ip net.IP) bool {
+func (bp *ByPassIPs) IsInnerIP(srcIP net.IP) bool {
 
 	bp.RLock()
 	defer bp.RUnlock()
@@ -48,10 +49,10 @@ func (bp *ByPassIPs) IsInnerIP(ip net.IP) bool {
 		return false
 	}
 
-	for _, mask := range bp.Masks {
-		maskIP := ip.Mask(mask)
-		if _, ok := bp.IP[maskIP.String()]; ok {
-			fmt.Printf("\n------>>>IsInnerIP success ip:%s->ip mask:%s\n", ip, maskIP)
+	for mip, mask := range bp.ipMask {
+		maskIP := srcIP.Mask(mask).String()
+		if maskIP == mip {
+			utils.LogInst().Debugf("=======>>> IsInnerIP success ip:%s->mip:%s mask:%s\n", srcIP, mip, mask.String())
 			return true
 		}
 	}
