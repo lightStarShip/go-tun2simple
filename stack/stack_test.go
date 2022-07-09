@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -66,4 +67,10 @@ func TestLoadIP2(t *testing.T) {
 	boool = ByPassInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 
+}
+func TestAesKey(t *testing.T) {
+	_, err := hex.DecodeString(strings.ToLower("B9c0k2GRZDLn63i/REt0HAWCIR64zR6h48i87+XFz34="))
+	if err != nil {
+		t.Fatal(err)
+	}
 }

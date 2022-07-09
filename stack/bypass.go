@@ -37,7 +37,7 @@ func (bp *ByPassIPs) Load(IPS string) {
 		}
 		bp.ipMask[ip.String()] = subNet.Mask
 	}
-	utils.LogInst().Debugf("=======>>> Total bypass :%d \n", len(bp.ipMask))
+	utils.LogInst().Infof("=======>>> Total bypass :%d \n", len(bp.ipMask))
 }
 
 func (bp *ByPassIPs) IsInnerIP(srcIP net.IP) bool {

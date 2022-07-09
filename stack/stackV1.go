@@ -38,7 +38,7 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	aesStr := w.AesKeyBase64()
 	key, err := hex.DecodeString(aesStr)
 	if err != nil {
-		utils.LogInst().Errorf("======>>> stack param invalid aes key:%s", aesStr)
+		utils.LogInst().Errorf("======>>> stack param invalid aes key:%s==>err:%s", aesStr, err)
 		return err
 	}
 	s1.aesKey = key
@@ -48,7 +48,7 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 		return fmt.Errorf("======>>> too small mtu")
 	}
 
-	utils.LogInst().Debugf("======>>> stack param: sid:%s mid:%s mtu:%d", s1.selfId, s1.minerAddr, s1.mtu)
+	utils.LogInst().Infof("======>>> stack param: sid:%s mid:%s mtu:%d", s1.selfId, s1.minerAddr, s1.mtu)
 
 	core.RegisterTCPConnHandler(s1)
 
