@@ -45,6 +45,11 @@ func (bp *ByPassIPs) IsInnerIP(srcIP net.IP) bool {
 	bp.RLock()
 	defer bp.RUnlock()
 
+	if len(bp.ipMask) == 0 {
+		utils.LogInst().Debugf("=======>>> no ip rule is used\n")
+		return true
+	}
+
 	if bp.global {
 		return false
 	}

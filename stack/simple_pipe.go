@@ -20,6 +20,7 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 	req := &node.SetupReq{
 		IV:      *iv,
 		SubAddr: s1.selfId,
+		MTU:     s1.mtu,
 	}
 	jsonConn := &network.JsonConn{Conn: lvConn}
 	buf := utils.NewBytes(utils.BufSize)
@@ -29,14 +30,14 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 		return nil, err
 	}
 
-	aesConn, err := network.NewAesConn(conn, s1.aesKey, *iv)
+	aesConn, err := network.NewAesConn(lvConn, s1.aesKey, *iv)
 	if err != nil {
 		utils.LogInst().Errorf("======>>>NewAesConn for[%s] server err :%v", nameTarget, err)
 		return nil, err
 	}
-	lvConn = network.NewLVConn(aesConn)
+	utils.LogInst().Errorf("======>>>ProbeReq for[%s] server err :%v", s1.aesKey)
 
-	jsonConn = &network.JsonConn{Conn: lvConn}
+	jsonConn = &network.JsonConn{Conn: aesConn}
 	if err := jsonConn.SynBuffer(buf, &node.ProbeReq{
 		Target: nameTarget,
 	}); err != nil {
@@ -44,5 +45,5 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 		return nil, err
 	}
 
-	return lvConn, nil
+	return aesConn, nil
 }
