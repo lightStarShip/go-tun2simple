@@ -13,7 +13,7 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 		utils.LogInst().Errorf("======>>>SafeConn for[%s] server err :%v", nameTarget, err)
 		return nil, err
 	}
-	//_ = conn.(*net.TCPConn).SetKeepAlive(true)
+	_ = conn.(*net.TCPConn).SetKeepAlive(true)
 	lvConn := network.NewLVConn(conn)
 
 	iv := network.NewSalt()
@@ -28,12 +28,15 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 		utils.LogInst().Errorf("======>>>SetupReq for[%s] server err :%v", nameTarget, err)
 		return nil, err
 	}
-	aesConn, err := network.NewAesConn(lvConn, s1.aesKey, *iv)
+
+	aesConn, err := network.NewAesConn(conn, s1.aesKey, *iv)
 	if err != nil {
 		utils.LogInst().Errorf("======>>>NewAesConn for[%s] server err :%v", nameTarget, err)
 		return nil, err
 	}
-	jsonConn = &network.JsonConn{Conn: aesConn}
+	lvConn = network.NewLVConn(aesConn)
+
+	jsonConn = &network.JsonConn{Conn: lvConn}
 	if err := jsonConn.SynBuffer(buf, &node.ProbeReq{
 		Target: nameTarget,
 	}); err != nil {
@@ -41,5 +44,5 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 		return nil, err
 	}
 
-	return aesConn, nil
+	return lvConn, nil
 }

@@ -30,3 +30,50 @@ func (s1 *stackV1) relay(src, dst net.Conn) {
 		dst.LocalAddr().String(),
 		dst.RemoteAddr().String())
 }
+
+func (s1 *stackV1) upStream(appConn, proxyConn net.Conn) {
+	buf := utils.NewBytes(s1.mtu)
+	defer utils.FreeBytes(buf)
+	for {
+		no, err := appConn.Read(buf)
+		if no == 0 {
+			if err != io.EOF {
+				utils.LogInst().Warnf("======>>>read:app---->proxy err=>%s left:%d", err, no)
+			} else {
+				utils.LogInst().Debugf("======>>>read:app---->proxy EOF")
+			}
+			return
+		}
+		_, err = proxyConn.Write(buf[:no])
+		if err != nil {
+			utils.LogInst().Warnf("======>>>write: app---->proxy err=>%s", err)
+			return
+		}
+		utils.LogInst().Debugf("======>>>upStream: app---->proxy data:%d ", no)
+	}
+}
+
+func (s1 *stackV1) downStream(appConn, proxyConn net.Conn) {
+	buf := utils.NewBytes(s1.mtu)
+	defer utils.FreeBytes(buf)
+	for {
+		no, err := proxyConn.Read(buf)
+		if no == 0 {
+			if err != io.EOF {
+				utils.LogInst().Warnf("======>>>read: app<----proxy err=>%s", err)
+			} else {
+				utils.LogInst().Debugf("======>>>read: app<----proxy EOF ")
+			}
+			_ = proxyConn.SetDeadline(time.Now().Add(time.Second * 5))
+			break
+		}
+
+		writeNo, err := appConn.Write(buf[:no])
+		if err != nil {
+			utils.LogInst().Warnf("======>>>write app<----proxy err:%s left=%d", err, no)
+			break
+		}
+
+		utils.LogInst().Debugf("======>>>read: app<----proxy data:%d written:%d", no, writeNo)
+	}
+}
