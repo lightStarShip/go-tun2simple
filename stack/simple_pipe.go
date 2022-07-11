@@ -35,7 +35,6 @@ func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 		utils.LogInst().Errorf("======>>>NewAesConn for[%s] server err :%v", nameTarget, err)
 		return nil, err
 	}
-	utils.LogInst().Errorf("======>>>ProbeReq for[%s] server err :%v", s1.aesKey)
 
 	jsonConn = &network.JsonConn{Conn: aesConn}
 	if err := jsonConn.SynBuffer(buf, &node.ProbeReq{
