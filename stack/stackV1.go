@@ -59,8 +59,10 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	core.RegisterUDPConnHandler(dns)
 	rules := dev.LoadRule()
 	RInst().Setup(rules)
-	ips := dev.LoadIps()
-	ByPassInst().Load(ips)
+	inners := dev.LoadInnerIps()
+	IPRuleInst().LoadInners(inners)
+	mustHits := dev.LoadMustHitIps()
+	IPRuleInst().LoadMustHits(mustHits)
 	return nil
 }
 
@@ -70,7 +72,7 @@ func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {
 
 func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	dnsMatched := RInst().NeedProxy(target.IP.String())
-	ipMatched := ByPassInst().IsInnerIP(target.IP)
+	isMustProxy := IPRuleInst().IsMustHits(target.IP)
 
 	var targetMatchedNetAddr = ""
 	var matched = false
@@ -79,10 +81,17 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 		targetMatchedNetAddr = fmt.Sprintf("%s:%d", dnsMatched, target.Port)
 		utils.LogInst().Infof("======>>> dns matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
 
-	} else if ipMatched == false {
+	} else if isMustProxy == true {
 		matched = true
 		targetMatchedNetAddr = target.String()
-		utils.LogInst().Infof("======>>> ip matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+		utils.LogInst().Infof("======>>> must hit matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+	} else {
+		isInner := IPRuleInst().IsInnerIP(target.IP)
+		if isInner == false {
+			matched = true
+			targetMatchedNetAddr = target.String()
+			utils.LogInst().Infof("======>>> inner ip matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+		}
 	}
 
 	if matched {

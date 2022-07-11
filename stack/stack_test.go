@@ -53,18 +53,18 @@ func TestLoadIP2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ByPassInst().Load(string(bts))
+	IPRuleInst().LoadInners(string(bts))
 	hip := net.ParseIP("125.209.222.59")
-	boool := ByPassInst().IsInnerIP(hip)
+	boool := IPRuleInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 	hip = net.ParseIP("125.208.0.1")
-	boool = ByPassInst().IsInnerIP(hip)
+	boool = IPRuleInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 	hip = net.ParseIP("125.208.31.255")
-	boool = ByPassInst().IsInnerIP(hip)
+	boool = IPRuleInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 	hip = net.ParseIP("125.208.32.1")
-	boool = ByPassInst().IsInnerIP(hip)
+	boool = IPRuleInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 
 }
@@ -73,4 +73,14 @@ func TestAesKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+func TestLoadIP3(t *testing.T) {
+	bts, err := ioutil.ReadFile("must_hit.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	IPRuleInst().LoadInners(string(bts))
+	hip := net.ParseIP("149.154.175.51")
+	boool := IPRuleInst().IsInnerIP(hip)
+	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 }

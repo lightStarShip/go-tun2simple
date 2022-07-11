@@ -18,7 +18,8 @@ type TunDev interface {
 	TunClosed() error
 	SafeConn(fd int32) bool
 	LoadRule() string
-	LoadIps() string
+	LoadInnerIps() string
+	LoadMustHitIps() string
 	MTU() int
 }
 
