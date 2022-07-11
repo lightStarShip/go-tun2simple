@@ -33,7 +33,7 @@ func (bp *IpRules) LoadInners(innerIPs string) {
 	for _, cidr := range array {
 		ip, subNet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			utils.LogInst().Debugf("=======>>> invalid  bypass cidr %s\n", cidr)
+			utils.LogInst().Debugf("=======>>> invalid  bypass cidr [%s]\n", cidr)
 			continue
 		}
 		bp.innerIpMasks[ip.String()] = subNet.Mask
