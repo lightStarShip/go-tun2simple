@@ -59,7 +59,7 @@ func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%s", target.String())
 		return errors.New("can not handle non-DNS packet")
 	}
-	//TODO
+	//TODO::
 	/*
 		&&
 				target.Port != COMMON_DNS_PORT2 &&

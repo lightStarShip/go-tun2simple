@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	DialTimeOut = 5 * time.Second
+	DialTimeOut = 8 * time.Second
 	MinMtuVal   = 1 << 15
 )
 
@@ -34,6 +34,7 @@ func (s1 *stackV1) relay(src, dst net.Conn) {
 func (s1 *stackV1) upStream(appConn, proxyConn net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
+	defer appConn.Close()
 	for {
 		no, err := appConn.Read(buf)
 		if no == 0 {
@@ -56,6 +57,7 @@ func (s1 *stackV1) upStream(appConn, proxyConn net.Conn) {
 func (s1 *stackV1) downStream(appConn, proxyConn net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
+	defer proxyConn.Close()
 	for {
 		no, err := proxyConn.Read(buf)
 		if no == 0 {
@@ -64,8 +66,8 @@ func (s1 *stackV1) downStream(appConn, proxyConn net.Conn) {
 			} else {
 				utils.LogInst().Debugf("======>>>read: app<----proxy EOF ")
 			}
-			_ = proxyConn.SetDeadline(time.Now().Add(time.Second * 5))
-			break
+			_ = appConn.SetDeadline(time.Now().Add(time.Second * 5))
+			return
 		}
 
 		writeNo, err := appConn.Write(buf[:no])
