@@ -102,7 +102,7 @@ func (bp *IpRules) LoadMustHits(ips string) {
 		}
 		bp.mustHitMasks[ip.String()] = subNet.Mask
 	}
-	utils.LogInst().Infof("=======>>> Total must hits :%d \n", len(bp.innerIpMasks))
+	utils.LogInst().Infof("=======>>> Total must hits :%d \n", len(bp.mustHitMasks))
 }
 
 func (bp *IpRules) SetGlobal(g bool) {
