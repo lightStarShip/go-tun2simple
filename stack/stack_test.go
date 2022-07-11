@@ -1,10 +1,15 @@
 package stack
 
 import (
+	"bufio"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
+	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -54,17 +59,8 @@ func TestLoadIP2(t *testing.T) {
 		t.Fatal(err)
 	}
 	IPRuleInst().LoadInners(string(bts))
-	hip := net.ParseIP("125.209.222.59")
+	hip := net.ParseIP("45.253.43.45")
 	boool := IPRuleInst().IsInnerIP(hip)
-	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
-	hip = net.ParseIP("125.208.0.1")
-	boool = IPRuleInst().IsInnerIP(hip)
-	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
-	hip = net.ParseIP("125.208.31.255")
-	boool = IPRuleInst().IsInnerIP(hip)
-	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
-	hip = net.ParseIP("125.208.32.1")
-	boool = IPRuleInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 
 }
@@ -84,3 +80,99 @@ func TestLoadIP3(t *testing.T) {
 	boool := IPRuleInst().IsInnerIP(hip)
 	fmt.Println("=======>>> IsInnerIP:->", hip, boool)
 }
+func TestLoadIP4(t *testing.T) {
+	ptr, _ := net.LookupAddr("45.253.43.45")
+	for _, ptrvalue := range ptr {
+		fmt.Println(ptrvalue)
+	}
+}
+
+func TestIPRange2(t *testing.T) {
+	resp, err := http.Get("http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = ioutil.WriteFile("bypass.txt", body, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+	   cat cn_raw.txt|grep "CN|ipv4" > cn_ipv4.txt
+
+	*/
+}
+
+//go test -run TestIPRange1 --uid="BD"
+func TestIPRange1(t *testing.T) {
+	resp, err := http.Get("http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	reader := bufio.NewReader(resp.Body)
+
+	file, err := os.Create("bypass3.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		line, _, err := reader.ReadLine()
+		if err != nil {
+			if err == io.EOF {
+				fmt.Println("--------------->finished----------->")
+				break
+			}
+			t.Fatal(err)
+		}
+		strLine := string(line)
+		subStrs := strings.Split(strLine, "|")
+		if len(subStrs) != 7 {
+			fmt.Println("xxxxxxxxxxx invalid: \t", strLine)
+			continue
+		}
+		if subStrs[1] != uid || subStrs[2] != "ipv4" {
+			fmt.Println("xxxxxxxxxxx not match\t", strLine)
+			continue
+		}
+
+		ipNo, err := strconv.Atoi(subStrs[4])
+		if err != nil {
+			fmt.Println("xxxxxxxxxxx number convert failed\t", strLine)
+			continue
+		}
+
+		ipPower := getPowerOfInt(ipNo)
+		ret := fmt.Sprintf("%s/%d", subStrs[3], ipPower)
+		_, err = file.WriteString(ret + "\n")
+		if err != nil {
+			t.Fatal(err)
+		}
+		fmt.Println("+++++++right match:\t", ret)
+	}
+	file.Close()
+}
+
+func getPowerOfInt(size int) int {
+	var mask = -1
+	for size != 0 {
+		size = size >> 1
+		mask++
+	}
+	return 32 - mask
+}
+
+func TestIPRange3(t *testing.T) {
+	fmt.Println(getPowerOfInt(64))
+	fmt.Println(getPowerOfInt(1024))
+	fmt.Println(getPowerOfInt(65536))
+}
+
+/*
+ cat cn_raw.txt|grep "CN|ipv4" > cn_ipv4.txt
+
+*/

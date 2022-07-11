@@ -2,7 +2,7 @@ package stack
 
 import (
 	"encoding/hex"
-	"errors"
+	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"golang.org/x/net/dns/dnsmessage"
@@ -11,19 +11,15 @@ import (
 )
 
 const (
-	COMMON_DNS_PORT  = 53
-	COMMON_DNS_PORT2 = 443
-	COMMON_DNS_PORT3 = 853
-	dnsHeaderLength  = 12
-	dnsMaskQr        = uint8(0x80)
-	dnsMaskTc        = uint8(0x02)
-	dnsMaskRcode     = uint8(0x0F)
+	COMMON_DNS_PORT = 53
 )
 
 type dnsHandler struct {
 	sync.Mutex
-	pivot *net.UDPConn
-	cache map[uint16]core.UDPConn
+	saver       ConnProtector
+	pivot       *net.UDPConn
+	cache       map[uint16]core.UDPConn
+	redirectMap map[string]net.Conn
 }
 
 func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
@@ -38,15 +34,16 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 		utils.LogInst().Errorf("======>>>DNS SyscallConn err:=>%s", err.Error())
 		return nil, err
 	}
-	//TODO:: need a full test
 	if err := raw.Control(saver); err != nil {
 		utils.LogInst().Errorf("======>>>DNS raw Control err:=>%s", err.Error())
 		return nil, err
 	}
 
 	handler := &dnsHandler{
-		pivot: pc,
-		cache: make(map[uint16]core.UDPConn),
+		pivot:       pc,
+		saver:       saver,
+		cache:       make(map[uint16]core.UDPConn),
+		redirectMap: make(map[string]net.Conn),
 	}
 	go handler.waitResponse()
 	utils.LogInst().Debugf("======>>> create dns handler[%s] success:=>", pc.LocalAddr().String())
@@ -55,16 +52,15 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
-	if target.Port != COMMON_DNS_PORT {
-		utils.LogInst().Errorf("======>>>Cannot handle non-DNS packet port:%s", target.String())
-		return errors.New("can not handle non-DNS packet")
+	if target.Port == COMMON_DNS_PORT {
+		return nil
 	}
-	//TODO::
-	/*
-		&&
-				target.Port != COMMON_DNS_PORT2 &&
-				target.Port != COMMON_DNS_PORT3
-	*/
+	peerUdp, err := SafeConn("udp", target.String(), dh.saver, DialTimeOut)
+	if err != nil {
+		return err
+	}
+	dh.redirectMap[target.String()] = peerUdp
+	go dh.receiveFromTarget(conn, peerUdp, target)
 	return nil
 }
 
@@ -118,8 +114,62 @@ func (dh *dnsHandler) waitResponse() {
 	}
 }
 
+func (dh *dnsHandler) receiveFromTarget(conn core.UDPConn, peerUdp net.Conn, target *net.UDPAddr) {
+	buf := utils.NewBytes(utils.BufSize)
+	defer utils.FreeBytes(buf)
+	utils.LogInst().Warnf("======>>>prepare to read udp for target:=>%s", target.String())
+
+	defer dh.clearUdpRelay(target.String())
+	defer conn.Close()
+	for {
+		n, err := peerUdp.Read(buf)
+		if err != nil {
+			utils.LogInst().Warnf("======>>>udp relay app<------target err:=>%s", err.Error())
+			return
+		}
+		_, err = conn.WriteFrom(buf[:n], target)
+		if err != nil {
+			utils.LogInst().Warnf("======>>>udp relay app<------target err:=>%s", err.Error())
+			return
+		}
+	}
+}
+
+func (dh *dnsHandler) clearUdpRelay(target string) {
+	peerUdp, ok := dh.redirectMap[target]
+	if !ok {
+		return
+	}
+
+	peerUdp.Close()
+	delete(dh.redirectMap, target)
+}
+
+func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
+	peerUdp, ok := dh.redirectMap[addr.String()]
+	if !ok {
+		conn.Close()
+		err := fmt.Errorf("no peer udp relay found for addr:%s", addr.String())
+		utils.LogInst().Warnf("======>>>udp relay app------>target err:=>%s", err.Error())
+		return err
+	}
+	_, err := peerUdp.Write(data)
+	if err == nil {
+		return nil
+	}
+	dh.clearUdpRelay(addr.String())
+	conn.Close()
+	utils.LogInst().Warnf("======>>>udp relay app------>target peer write err:=>%s", err.Error())
+	return err
+}
+
 func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
+
+	if addr.Port != COMMON_DNS_PORT {
+		return dh.forwardToTarget(conn, data, addr)
+	}
+
 	_, err := dh.pivot.WriteToUDP(data, addr)
 	if err != nil {
 		utils.LogInst().Errorf("======>>>dns forward err:%s\n%s\n", err.Error(), hex.EncodeToString(data))
