@@ -159,7 +159,7 @@ func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.
 	if !ok {
 		dh.Unlock()
 		conn.Close()
-		err := fmt.Errorf("no peer udp relay found for addr:%s", addr.String())
+		err := fmt.Errorf("no peer udp relay found for addr:%s", id)
 		utils.LogInst().Warnf("======>>>udp relay app------>target err:=>%s", err.Error())
 		return err
 	}
@@ -170,7 +170,7 @@ func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.
 	}
 	dh.clearUdpRelay(addr.String())
 	conn.Close()
-	utils.LogInst().Warnf("======>>>udp relay app------>target peer write err:=>%s", err.Error())
+	utils.LogInst().Warnf("======>>>udp relay app------>target[id=%s] peer write err:=>%s", id, err.Error())
 	return err
 }
 
