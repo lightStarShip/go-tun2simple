@@ -50,6 +50,10 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 	return handler, nil
 }
 
+func udpID(src, dst string) string {
+	return fmt.Sprintf("%s->%s", src, dst)
+}
+
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
 	if target.Port == COMMON_DNS_PORT {
@@ -59,7 +63,10 @@ func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	if err != nil {
 		return err
 	}
-	dh.redirectMap[target.String()] = peerUdp
+	id := udpID(conn.LocalAddr().String(), target.String())
+	dh.Lock()
+	dh.redirectMap[id] = peerUdp
+	dh.Unlock()
 	go dh.receiveFromTarget(conn, peerUdp, target)
 	return nil
 }
@@ -146,13 +153,17 @@ func (dh *dnsHandler) clearUdpRelay(target string) {
 }
 
 func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
-	peerUdp, ok := dh.redirectMap[addr.String()]
+	id := udpID(conn.LocalAddr().String(), addr.String())
+	dh.Lock()
+	peerUdp, ok := dh.redirectMap[id]
 	if !ok {
+		dh.Unlock()
 		conn.Close()
 		err := fmt.Errorf("no peer udp relay found for addr:%s", addr.String())
 		utils.LogInst().Warnf("======>>>udp relay app------>target err:=>%s", err.Error())
 		return err
 	}
+	dh.Unlock()
 	_, err := peerUdp.Write(data)
 	if err == nil {
 		return nil
