@@ -102,13 +102,21 @@ func (dh *dnsHandler) waitResponse() {
 			utils.LogInst().Errorf("======>>>Unpack dns response err:%s\n%s\n", err.Error(), hex.EncodeToString(buf[:n]))
 			continue
 		}
+		utils.LogInst().Debugf("======>>>dns[%d] response:%s =>", msg.ID, msg.Answers)
+
 		dh.Lock()
 		conn, ok := dh.cache[msg.ID]
 		if !ok {
 			dh.Unlock()
-			utils.LogInst().Warnf("======>>> no such[%d] cache item", msg.ID)
+			utils.LogInst().Warnf("======>>> no such[%d] cache item for response:%s", msg.ID, msg.GoString())
 			continue
 		}
+		if len(msg.Answers) == 0 {
+			dh.Unlock()
+			utils.LogInst().Warnf("======>>> empty dns[%d] Answers", msg.ID)
+			continue
+		}
+
 		delete(dh.cache, msg.ID)
 		dh.Unlock()
 
