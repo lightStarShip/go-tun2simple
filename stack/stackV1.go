@@ -115,7 +115,9 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	}
 	utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
 
-	go s1.upStream(conn, targetConn)
-	go s1.downStream(conn, targetConn)
+	//go s1.upStream(conn, targetConn)
+	//go s1.downStream(conn, targetConn)
+	go s1.relay(conn, targetConn)
+	go s1.relay(targetConn, conn)
 	return nil
 }

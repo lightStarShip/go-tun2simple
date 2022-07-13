@@ -8,18 +8,25 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 	"net"
 	"sync"
+	"time"
 )
 
 const (
 	COMMON_DNS_PORT = 53
+	ExpireTime      = time.Minute * 3
 )
 
+type dnsConn struct {
+	core.UDPConn
+	updateTime time.Time
+}
 type dnsHandler struct {
 	sync.Mutex
 	saver       ConnProtector
 	pivot       *net.UDPConn
-	cache       map[uint16]core.UDPConn
+	cache       map[uint16]dnsConn
 	redirectMap map[string]net.Conn
+	expire      *time.Ticker
 }
 
 func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
@@ -42,10 +49,12 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 	handler := &dnsHandler{
 		pivot:       pc,
 		saver:       saver,
-		cache:       make(map[uint16]core.UDPConn),
+		cache:       make(map[uint16]dnsConn),
 		redirectMap: make(map[string]net.Conn),
+		expire:      time.NewTicker(ExpireTime),
 	}
 	go handler.waitResponse()
+	go handler.expireConn()
 	utils.LogInst().Debugf("======>>> create dns handler[%s] success:=>", pc.LocalAddr().String())
 	return handler, nil
 }
@@ -53,7 +62,25 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 func udpID(src, dst string) string {
 	return fmt.Sprintf("%s->%s", src, dst)
 }
-
+func (dh *dnsHandler) expireConn() {
+	for {
+		select {
+		case time := <-dh.expire.C:
+			utils.LogInst().Infof("======>>> timer[%s] cleaner start:=>", time.String())
+			for idx, conn := range dh.cache {
+				if time.Sub(conn.updateTime) <= ExpireTime {
+					utils.LogInst().Debugf("======>>> dns[%d] still ok:=>", idx)
+					continue
+				}
+				utils.LogInst().Infof("======>>> dns[%d] need to be deleted:=>", idx)
+				dh.Lock()
+				delete(dh.cache, idx)
+				dh.Unlock()
+				conn.Close()
+			}
+		}
+	}
+}
 func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	utils.LogInst().Debugf("======>>>Connect:%s------>>>%s", conn.LocalAddr().String(), target.String())
 	if target.Port == COMMON_DNS_PORT {
@@ -117,8 +144,8 @@ func (dh *dnsHandler) waitResponse() {
 			continue
 		}
 
-		delete(dh.cache, msg.ID)
 		dh.Unlock()
+		conn.updateTime = time.Now()
 
 		_, err = conn.WriteFrom(buf[:n], addr)
 		if err != nil {
@@ -203,7 +230,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 	utils.LogInst().Debugf("======>>>dns[%d] questions:%s =>", msg.ID, msg.Questions)
 
 	dh.Lock()
-	dh.cache[msg.ID] = conn
+	dh.cache[msg.ID] = dnsConn{conn, time.Now()}
 	dh.Unlock()
 
 	return nil
