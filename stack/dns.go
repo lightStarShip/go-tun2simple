@@ -141,7 +141,7 @@ func (dh *dnsHandler) waitResponse() {
 		}
 		utils.LogInst().Debugf("======>>>dns[%d] response:%v =>", msg.ID, msg.Answers)
 
-		dh.cLocker.RLocker()
+		dh.cLocker.RLock()
 		conn, ok := dh.cache[msg.ID]
 		if !ok {
 			dh.cLocker.RUnlock()
@@ -188,18 +188,22 @@ func (dh *dnsHandler) receiveFromTarget(conn core.UDPConn, peerUdp net.Conn, tar
 }
 
 func (dh *dnsHandler) clearUdpRelay(target string) {
+	dh.rLocker.RLock()
 	peerUdp, ok := dh.redirectMap[target]
 	if !ok {
+		dh.rLocker.RUnlock()
 		return
 	}
-
+	dh.rLocker.RUnlock()
 	peerUdp.Close()
+	dh.rLocker.Lock()
 	delete(dh.redirectMap, target)
+	dh.rLocker.Unlock()
 }
 
 func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	id := udpID(conn.LocalAddr().String(), addr.String())
-	dh.rLocker.RLocker()
+	dh.rLocker.RLock()
 	peerUdp, ok := dh.redirectMap[id]
 	if !ok {
 		dh.rLocker.RUnlock()
@@ -237,7 +241,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error(), hex.EncodeToString(data))
 		return err
 	}
-	utils.LogInst().Debugf("======>>>dns[%d] questions:%s =>", msg.ID, msg.Questions)
+	utils.LogInst().Debugf("======>>>dns[%d] questions:%v =>", msg.ID, msg.Questions)
 
 	dh.cLocker.Lock()
 	dh.cache[msg.ID] = &dnsConn{conn, time.Now()}
