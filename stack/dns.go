@@ -157,12 +157,13 @@ func (dh *dnsHandler) waitResponse() {
 		dh.cLocker.RUnlock()
 		conn.updateTime = time.Now()
 
+		RInst().ParseDns(msg)
+
 		_, err = conn.WriteFrom(buf[:n], addr)
 		if err != nil {
 			utils.LogInst().Errorf("======>>>dns proxy write back err:%s", err.Error())
 			continue
 		}
-		RInst().ParseDns(msg)
 	}
 }
 
