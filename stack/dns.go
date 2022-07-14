@@ -7,6 +7,7 @@ import (
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"golang.org/x/net/dns/dnsmessage"
 	"net"
+	"os"
 	"sync"
 	"time"
 )
@@ -131,8 +132,8 @@ func (dh *dnsHandler) waitResponse() {
 	for {
 		n, addr, err := dh.pivot.ReadFromUDP(buf)
 		if err != nil {
-			utils.LogInst().Errorf("failed to read UDP data from remote: %v", err)
-			return
+			utils.LogInst().Errorf("======>>>failed to read UDP data from remote: %v", err)
+			os.Exit(-1)
 		}
 		msg := &dnsmessage.Message{}
 		if err := msg.Unpack(buf[:n]); err != nil {
