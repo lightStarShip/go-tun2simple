@@ -234,6 +234,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 
 	_, err := dh.pivot.WriteToUDP(data, addr)
 	if err != nil {
+		conn.Close()
 		utils.LogInst().Errorf("======>>>dns forward err:%s\n%s\n", err.Error(), hex.EncodeToString(data))
 		return err
 	}
