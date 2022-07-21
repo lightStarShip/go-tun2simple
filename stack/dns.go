@@ -99,6 +99,7 @@ func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	}
 	peerUdp, err := SafeConn("udp", target.String(), dh.saver, DialTimeOut)
 	if err != nil {
+		conn.Close()
 		return err
 	}
 	id := udpID(conn.LocalAddr().String(), target.String())
@@ -189,9 +190,9 @@ func (dh *dnsHandler) receiveFromTarget(conn core.UDPConn, peerUdp net.Conn, tar
 	}
 }
 
-func (dh *dnsHandler) clearUdpRelay(target string) {
+func (dh *dnsHandler) clearUdpRelay(id string) {
 	dh.rLocker.RLock()
-	peerUdp, ok := dh.redirectMap[target]
+	peerUdp, ok := dh.redirectMap[id]
 	if !ok {
 		dh.rLocker.RUnlock()
 		return
@@ -199,7 +200,7 @@ func (dh *dnsHandler) clearUdpRelay(target string) {
 	dh.rLocker.RUnlock()
 	peerUdp.Close()
 	dh.rLocker.Lock()
-	delete(dh.redirectMap, target)
+	delete(dh.redirectMap, id)
 	dh.rLocker.Unlock()
 }
 
@@ -219,7 +220,7 @@ func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.
 	if err == nil {
 		return nil
 	}
-	dh.clearUdpRelay(addr.String())
+	dh.clearUdpRelay(id)
 	conn.Close()
 	utils.LogInst().Warnf("======>>>udp relay app------>target[id=%s] peer write err:=>%s", id, err.Error())
 	return err
