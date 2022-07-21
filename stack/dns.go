@@ -26,7 +26,7 @@ type dnsHandler struct {
 	rLocker     sync.RWMutex
 	saver       ConnProtector
 	pivot       *net.UDPConn
-	cache       map[uint16]*dnsConn
+	dnsMap      map[uint16]*dnsConn
 	redirectMap map[string]net.Conn
 	expire      *time.Ticker
 }
@@ -51,7 +51,7 @@ func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 	handler := &dnsHandler{
 		pivot:       pc,
 		saver:       saver,
-		cache:       make(map[uint16]*dnsConn),
+		dnsMap:      make(map[uint16]*dnsConn),
 		redirectMap: make(map[string]net.Conn),
 		expire:      time.NewTicker(ExpireTime),
 	}
@@ -70,7 +70,7 @@ func (dh *dnsHandler) expireConn() {
 		case time := <-dh.expire.C:
 			utils.LogInst().Infof("======>>> timer[%s] cleaner start:=>", time.String())
 			toDelete := make([]uint16, 0)
-			for idx, conn := range dh.cache {
+			for idx, conn := range dh.dnsMap {
 				if time.Sub(conn.updateTime) <= ExpireTime {
 					utils.LogInst().Debugf("======>>> dns[%d] still ok:=>", idx)
 					continue
@@ -86,7 +86,7 @@ func (dh *dnsHandler) expireConn() {
 
 			dh.cLocker.Lock()
 			for _, idx := range toDelete {
-				delete(dh.cache, idx)
+				delete(dh.dnsMap, idx)
 			}
 			dh.cLocker.Unlock()
 		}
@@ -113,7 +113,7 @@ func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 func (dh *dnsHandler) close() {
 	utils.LogInst().Warnf("======>>>dns handler quit......")
 	dh.cLocker.Lock()
-	for _, conn := range dh.cache {
+	for _, conn := range dh.dnsMap {
 		conn.Close()
 	}
 	dh.cLocker.Unlock()
@@ -144,10 +144,10 @@ func (dh *dnsHandler) waitResponse() {
 		utils.LogInst().Debugf("======>>>dns[%d] response:%v =>", msg.ID, msg.Answers)
 
 		dh.cLocker.RLock()
-		conn, ok := dh.cache[msg.ID]
+		conn, ok := dh.dnsMap[msg.ID]
 		if !ok {
 			dh.cLocker.RUnlock()
-			utils.LogInst().Warnf("======>>> no such[%d] cache item for response:%s", msg.ID, msg.GoString())
+			utils.LogInst().Warnf("======>>> no such[%d] dnsMap item for response:%s", msg.ID, msg.GoString())
 			continue
 		}
 		if len(msg.Answers) == 0 {
@@ -173,8 +173,8 @@ func (dh *dnsHandler) receiveFromTarget(conn core.UDPConn, peerUdp net.Conn, tar
 	buf := utils.NewBytes(utils.BufSize)
 	defer utils.FreeBytes(buf)
 	utils.LogInst().Warnf("======>>>prepare to read udp for target:=>%s", target.String())
-
-	defer dh.clearUdpRelay(target.String())
+	id := udpID(conn.LocalAddr().String(), target.String())
+	defer dh.clearUdpRelay(id)
 	defer conn.Close()
 	for {
 		n, err := peerUdp.Read(buf)
@@ -248,7 +248,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 	utils.LogInst().Debugf("======>>>dns[%d] questions:%v =>", msg.ID, msg.Questions)
 
 	dh.cLocker.Lock()
-	dh.cache[msg.ID] = &dnsConn{conn, time.Now()}
+	dh.dnsMap[msg.ID] = &dnsConn{conn, time.Now()}
 	dh.cLocker.Unlock()
 
 	return nil
