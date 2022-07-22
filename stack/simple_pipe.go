@@ -10,7 +10,7 @@ import (
 func (s1 *stackV1) setupSimpleConn(nameTarget string) (net.Conn, error) {
 	conn, err := SafeConn("tcp", s1.minerAddr, s1.connSaver, DialTimeOut)
 	if err != nil {
-		utils.LogInst().Errorf("======>>>SafeConn for[%s] server err :%v", nameTarget, err)
+		utils.LogInst().Errorf("======>>>SafeConn to miner[%s] for[%s] server err :%v", s1.minerAddr, nameTarget, err)
 		return nil, err
 	}
 	_ = conn.(*net.TCPConn).SetKeepAlive(true)
