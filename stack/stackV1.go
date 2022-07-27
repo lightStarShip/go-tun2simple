@@ -52,7 +52,7 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 
 	core.RegisterTCPConnHandler(s1)
 
-	dns, err := newDnsHandler(s1.connSaver)
+	dns, err := newUdpHandler(s1.connSaver)
 	if err != nil {
 		return err
 	}

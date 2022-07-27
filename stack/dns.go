@@ -31,33 +31,20 @@ type dnsHandler struct {
 	expire      *time.Ticker
 }
 
-func newDnsHandler(saver ConnProtector) (core.UDPConnHandler, error) {
-	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
-	pc, err := net.ListenUDP("udp4", bindAddr)
-	if err != nil {
-		utils.LogInst().Errorf("======>>>DNS ListenUDP err:=>%s", err.Error())
-		return nil, err
-	}
-	raw, err := pc.SyscallConn()
-	if err != nil {
-		utils.LogInst().Errorf("======>>>DNS SyscallConn err:=>%s", err.Error())
-		return nil, err
-	}
-	if err := raw.Control(saver); err != nil {
-		utils.LogInst().Errorf("======>>>DNS raw Control err:=>%s", err.Error())
-		return nil, err
-	}
+func newUdpHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 
 	handler := &dnsHandler{
-		pivot:       pc,
 		saver:       saver,
 		dnsMap:      make(map[uint16]*dnsConn),
 		redirectMap: make(map[string]net.Conn),
 		expire:      time.NewTicker(ExpireTime),
 	}
-	go handler.waitResponse()
+	if err := handler.setupPivot(); err != nil {
+		return nil, err
+	}
+
+	go handler.dnsWaitResponse()
 	go handler.expireConn()
-	utils.LogInst().Debugf("======>>> create dns handler[%s] success:=>", pc.LocalAddr().String())
 	return handler, nil
 }
 
@@ -106,7 +93,7 @@ func (dh *dnsHandler) Connect(conn core.UDPConn, target *net.UDPAddr) error {
 	dh.rLocker.Lock()
 	dh.redirectMap[id] = peerUdp
 	dh.rLocker.Unlock()
-	go dh.receiveFromTarget(conn, peerUdp, target)
+	go dh.redirectWaitForRemote(conn, peerUdp, target)
 	return nil
 }
 
@@ -120,7 +107,32 @@ func (dh *dnsHandler) close() {
 	dh.pivot.Close()
 }
 
-func (dh *dnsHandler) waitResponse() {
+func (dh *dnsHandler) setupPivot() error {
+	if dh.pivot != nil {
+		dh.pivot.Close()
+
+	}
+	bindAddr := &net.UDPAddr{IP: nil, Port: 0}
+	pc, err := net.ListenUDP("udp4", bindAddr)
+	if err != nil {
+		utils.LogInst().Errorf("======>>>DNS ListenUDP err:=>%s", err.Error())
+		return err
+	}
+	raw, err := pc.SyscallConn()
+	if err != nil {
+		utils.LogInst().Errorf("======>>>DNS SyscallConn err:=>%s", err.Error())
+		return err
+	}
+	if err := raw.Control(dh.saver); err != nil {
+		utils.LogInst().Errorf("======>>>DNS raw Control err:=>%s", err.Error())
+		return err
+	}
+	dh.pivot = pc
+	utils.LogInst().Debugf("======>>> create udp pivot at[%s] success:=>", pc.LocalAddr().String())
+	return nil
+}
+
+func (dh *dnsHandler) dnsWaitResponse() {
 	utils.LogInst().Infof("======>>> dns wait thread start work......")
 	defer utils.LogInst().Infof("======>>> dns wait thread off work......")
 	buf := utils.NewBytes(utils.BufSize)
@@ -133,8 +145,8 @@ func (dh *dnsHandler) waitResponse() {
 	for {
 		n, addr, err := dh.pivot.ReadFromUDP(buf)
 		if err != nil {
-			utils.LogInst().Errorf("======>>>failed to read UDP data from remote: %v", err)
-			os.Exit(-1)
+			utils.LogInst().Errorf("======>>>udp pivot thread exit %v", err)
+			return
 		}
 		msg := &dnsmessage.Message{}
 		if err := msg.Unpack(buf[:n]); err != nil {
@@ -152,7 +164,7 @@ func (dh *dnsHandler) waitResponse() {
 		}
 		if len(msg.Answers) == 0 {
 			dh.cLocker.RUnlock()
-			utils.LogInst().Warnf("======>>> empty dns[%d] Answers", msg.ID)
+			utils.LogInst().Warnf("======>>> empty dns[%d] Answers from [%s]", msg.ID, addr.String())
 			continue
 		}
 
@@ -169,7 +181,7 @@ func (dh *dnsHandler) waitResponse() {
 	}
 }
 
-func (dh *dnsHandler) receiveFromTarget(conn core.UDPConn, peerUdp net.Conn, target *net.UDPAddr) {
+func (dh *dnsHandler) redirectWaitForRemote(conn core.UDPConn, peerUdp net.Conn, target *net.UDPAddr) {
 	buf := utils.NewBytes(utils.BufSize)
 	defer utils.FreeBytes(buf)
 	utils.LogInst().Warnf("======>>>prepare to read udp for target:=>%s", target.String())
@@ -204,7 +216,7 @@ func (dh *dnsHandler) clearUdpRelay(id string) {
 	dh.rLocker.Unlock()
 }
 
-func (dh *dnsHandler) forwardToTarget(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
+func (dh *dnsHandler) redirectForwardToRemote(conn core.UDPConn, data []byte, addr *net.UDPAddr) error {
 	id := udpID(conn.LocalAddr().String(), addr.String())
 	dh.rLocker.RLock()
 	peerUdp, ok := dh.redirectMap[id]
@@ -230,13 +242,18 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 	utils.LogInst().Debugf("======>>>ReceiveTo %s------>>>%s", conn.LocalAddr().String(), addr)
 
 	if addr.Port != COMMON_DNS_PORT {
-		return dh.forwardToTarget(conn, data, addr)
+		return dh.redirectForwardToRemote(conn, data, addr)
 	}
 
 	_, err := dh.pivot.WriteToUDP(data, addr)
 	if err != nil {
 		conn.Close()
 		utils.LogInst().Errorf("======>>>dns forward err:%s\n%s\n", err.Error(), hex.EncodeToString(data))
+		if err := dh.setupPivot(); err != nil {
+			utils.LogInst().Errorf("======>>>restart dns pivot err:%s\n%s\n")
+			os.Exit(-1)
+		}
+		go dh.dnsWaitResponse()
 		return err
 	}
 
@@ -245,7 +262,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 		utils.LogInst().Errorf("======>>>Unpack dns request err:%s", err.Error(), hex.EncodeToString(data))
 		return err
 	}
-	utils.LogInst().Debugf("======>>>dns[%d] questions:%v =>", msg.ID, msg.Questions)
+	utils.LogInst().Infof("======>>>dns[%d] questions:%v =>", msg.ID, msg.Questions)
 
 	dh.cLocker.Lock()
 	dh.dnsMap[msg.ID] = &dnsConn{conn, time.Now()}
