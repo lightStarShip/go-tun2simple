@@ -76,3 +76,59 @@ func TestUnpackDns(t *testing.T) {
 	}
 	fmt.Println(msg2.GoString())
 }
+
+func TestUnpackUdp(t *testing.T) {
+
+	buff, err := hex.DecodeString("ce0401000001000000000000117272352d2d2d736e2d6f3039377a6e73640b676f6f676c65766964656f03636f6d0000010001")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg := &dnsmessage.Message{}
+	if err := msg.Unpack(buff); err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(msg.GoString())
+}
+
+func TestGoogleDns(t *testing.T) {
+
+	buff, err := hex.DecodeString("ce0401000001000000000000117272352d2d2d736e2d6f3039377a6e73640b676f6f676c65766964656f03636f6d0000010001")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	msg := &dnsmessage.Message{}
+	if err := msg.Unpack(buff); err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(msg.GoString())
+
+	conn, err := net.DialUDP("udp4", nil, &net.UDPAddr{
+		IP:   net.ParseIP("8.8.8.8"),
+		Port: 53,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = conn.Write(buff)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := make([]byte, 2048)
+	n, err := bufio.NewReader(conn).Read(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("==========================")
+	fmt.Println()
+	fmt.Println()
+	msg2 := &dnsmessage.Message{}
+	if err := msg2.Unpack(p[:n]); err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(msg2.GoString())
+}

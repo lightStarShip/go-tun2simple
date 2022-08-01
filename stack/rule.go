@@ -45,9 +45,6 @@ func newRule() *Rule {
 		msgChan: make(chan *dnsmessage.Message, 1024),
 		ips:     make(IPCache),
 	}
-	//r.ips["8.8.8.8"] = "8.8.8.8"
-	//r.ips["8.8.4.4"] = "8.8.4.4"
-	//r.ips["1.1.1.1"] = "1.1.1.1"
 	go r.dnsProc()
 	return r
 }
@@ -115,7 +112,6 @@ func (r *Rule) Setup(s string) {
 }
 
 func (r *Rule) ParseDns(msg *dnsmessage.Message) {
-	//r.msgChan <- msg
 	utils.LogInst().Debugf("======>>>dns[%d] answers:%v :=>", msg.ID, msg.Answers)
 	var matchedDomain = ""
 	for i, question := range msg.Questions {
