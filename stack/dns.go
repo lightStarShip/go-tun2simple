@@ -7,7 +7,6 @@ import (
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"golang.org/x/net/dns/dnsmessage"
 	"net"
-	"os"
 	"sync"
 	"time"
 )
@@ -251,7 +250,7 @@ func (dh *dnsHandler) ReceiveTo(conn core.UDPConn, data []byte, addr *net.UDPAdd
 		utils.LogInst().Errorf("======>>>dns forward err:%s\n%s\n", err.Error(), hex.EncodeToString(data))
 		if err := dh.setupPivot(); err != nil {
 			utils.LogInst().Errorf("======>>>restart dns pivot err:%s\n%s\n")
-			os.Exit(-1)
+			return err
 		}
 		go dh.dnsWaitResponse()
 		return err
