@@ -9,7 +9,7 @@ import (
 
 const (
 	DialTimeOut = 8 * time.Second
-	MinMtuVal   = 1 << 15
+	MinMtuVal   = 1 << 12
 )
 
 func (s1 *stackV1) relay(src, dst net.Conn) {
