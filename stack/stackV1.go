@@ -79,22 +79,20 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	if len(dnsMatched) > 0 {
 		matched = true
 		targetMatchedNetAddr = fmt.Sprintf("%s:%d", dnsMatched, target.Port)
-		utils.LogInst().Infof("======>>> dns matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
-
 	} else if isMustProxy == true {
 		matched = true
 		targetMatchedNetAddr = target.String()
-		utils.LogInst().Infof("======>>> must hit matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
 	} else {
 		isInner := IPRuleInst().IsInnerIP(target.IP)
 		if isInner == false {
 			matched = true
 			targetMatchedNetAddr = target.String()
-			utils.LogInst().Infof("======>>> inner ip matched proxy for target:[%s=>%s]", target.String(), targetMatchedNetAddr)
 		}
 	}
 
 	if matched {
+		utils.LogInst().Infof("======>>> target is matched target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+
 		tarConn, err := s1.setupSimpleConn(targetMatchedNetAddr)
 		if err != nil {
 			_ = conn.Close()
