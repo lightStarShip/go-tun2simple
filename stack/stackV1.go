@@ -8,17 +8,11 @@ import (
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"github.com/redeslab/go-simple/account"
 	"net"
+	"os"
 )
 
 func newStackV1() SimpleStack {
-	ctx, c := context.WithCancel(context.Background())
-
-	s := &stackV1{
-		lwipStack: core.Inst(),
-		ctx:       ctx,
-		cancel:    c,
-	}
-	return s
+	return &stackV1{}
 }
 
 type stackV1 struct {
@@ -55,19 +49,28 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 
 	utils.LogInst().Infof("======>>> stack param: sid:%s mid:%s mtu:%d", s1.selfId, s1.minerAddr, s1.mtu)
 
+	s1.lwipStack = core.NewStack()
+
 	core.RegisterTCPConnHandler(s1)
 
+	ctx, c := context.WithCancel(context.Background())
+	s1.ctx = ctx
+	s1.cancel = c
 	dns, err := newUdpHandler(s1.connSaver, s1.ctx)
 	if err != nil {
 		return err
 	}
 	core.RegisterUDPConnHandler(dns)
+
 	rules := dev.LoadRule()
 	RInst().Setup(rules)
+
 	inners := dev.LoadInnerIps()
 	IPRuleInst().LoadInners(inners)
+
 	mustHits := dev.LoadMustHitIps()
 	IPRuleInst().LoadMustHits(mustHits)
+
 	return nil
 }
 
@@ -76,7 +79,12 @@ func (s1 *stackV1) DestroyStack() {
 		s1.cancel()
 	}
 
+	if s1.lwipStack != nil {
+		s1.lwipStack.Close()
+	}
+
 	RInst().Close()
+	os.Exit(0)
 }
 
 func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {

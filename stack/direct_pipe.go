@@ -34,20 +34,21 @@ func (s1 *stackV1) relay(src, dst net.Conn) {
 func (s1 *stackV1) upStream(isProxy bool, appConn, proxyConn net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
-	defer appConn.Close()
 	for {
 		no, err := appConn.Read(buf)
 		if no == 0 {
 			if err != io.EOF {
-				utils.LogInst().Warnf("======>>>[proxy=%t]read:app---->proxy err=>%s left:%d", isProxy, err, no)
+				utils.LogInst().Warnf("======>>>[proxy=%t]read:app---->proxy err=>%s left:%d local is :%s", isProxy, err, no, appConn.LocalAddr().String())
 			} else {
-				utils.LogInst().Debugf("======>>>[proxy=%t]read:app---->proxy EOF", isProxy)
+				utils.LogInst().Debugf("======>>>[proxy=%t]read:app---->proxy EOF local is :%s", isProxy, appConn.LocalAddr().String())
 			}
+			_ = appConn.SetDeadline(time.Now().Add(time.Second * 5))
 			return
 		}
 		_, err = proxyConn.Write(buf[:no])
 		if err != nil {
-			utils.LogInst().Warnf("======>>>[proxy=%t]write: app---->proxy err=>%s", isProxy, err)
+			proxyConn.Close()
+			utils.LogInst().Warnf("======>>>[proxy=%t]write: app---->proxy err=>%s remote is:%s", isProxy, err, proxyConn.RemoteAddr().String())
 			return
 		}
 		utils.LogInst().Debugf("======>>>[proxy=%t]upStream: app---->proxy data:%d ", isProxy, no)
@@ -57,22 +58,22 @@ func (s1 *stackV1) upStream(isProxy bool, appConn, proxyConn net.Conn) {
 func (s1 *stackV1) downStream(isProxy bool, appConn, proxyConn net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
-	defer proxyConn.Close()
 	for {
 		no, err := proxyConn.Read(buf)
 		if no == 0 {
 			if err != io.EOF {
-				utils.LogInst().Warnf("======>>>[proxy=%t]read: app<----proxy err=>%s", isProxy, err)
+				utils.LogInst().Warnf("======>>>[proxy=%t]read: app<----proxy err=>%s  remote is:%s", isProxy, err, proxyConn.RemoteAddr().String())
 			} else {
-				utils.LogInst().Debugf("======>>>[proxy=%t]read: app<----proxy EOF ", isProxy)
+				utils.LogInst().Debugf("======>>>[proxy=%t]read: app<----proxy EOF  remote is:%s", isProxy, proxyConn.RemoteAddr().String())
 			}
-			_ = appConn.SetDeadline(time.Now().Add(time.Second * 5))
+			_ = proxyConn.SetDeadline(time.Now().Add(time.Second * 5))
 			return
 		}
 
 		writeNo, err := appConn.Write(buf[:no])
 		if err != nil {
-			utils.LogInst().Warnf("======>>>[proxy=%t]write app<----proxy err:%s left=%d", isProxy, err, no)
+			appConn.Close()
+			utils.LogInst().Warnf("======>>>[proxy=%t]write app<----proxy err:%s left=%d local is :%s", isProxy, err, no, appConn.LocalAddr().String())
 			break
 		}
 

@@ -33,7 +33,7 @@ type dnsHandler struct {
 }
 
 func newUdpHandler(saver ConnProtector, ctx context.Context) (core.UDPConnHandler, error) {
-
+	utils.LogInst().Infof("======>>> newUdpHandler :")
 	handler := &dnsHandler{
 		saver:       saver,
 		ctx:         ctx,
@@ -71,6 +71,7 @@ func (dh *dnsHandler) expireConn() {
 			}
 			utils.LogInst().Infof("======>>> timer cleaner[%d] start[%s]:=>", id, tim.String())
 			toDelete := make([]uint16, 0)
+			dh.cLocker.RLock()
 			for idx, conn := range dh.dnsMap {
 				if tim.Sub(conn.updateTime) <= ExpireTime {
 					utils.LogInst().Debugf("======>>> dns[%d] still ok:=>", idx)
@@ -80,6 +81,7 @@ func (dh *dnsHandler) expireConn() {
 				toDelete = append(toDelete, idx)
 				conn.Close()
 			}
+			dh.cLocker.RUnlock()
 
 			if len(toDelete) == 0 {
 				continue
@@ -117,8 +119,12 @@ func (dh *dnsHandler) close() {
 	for _, conn := range dh.dnsMap {
 		conn.Close()
 	}
-	dh.redirectMap = make(map[string]net.Conn)
 	dh.cLocker.Unlock()
+
+	dh.rLocker.Lock()
+	dh.redirectMap = make(map[string]net.Conn)
+	dh.rLocker.Unlock()
+
 	dh.pivot.Close()
 }
 
