@@ -75,6 +75,7 @@ func (s1 *stackV1) DestroyStack() {
 	if s1.cancel != nil {
 		s1.cancel()
 	}
+
 	RInst().Close()
 }
 

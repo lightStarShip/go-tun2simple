@@ -57,10 +57,11 @@ func udpID(src, dst string) string {
 func (dh *dnsHandler) expireConn() {
 	id := utils.GetGID()
 	utils.LogInst().Infof("======>>> timer cleaner[%d] start success:", id)
-	defer utils.LogInst().Infof("======>>> timer cleaner[%d] quit:", id)
+	defer utils.LogInst().Infof("======>>> timer cleaner[%d] thread exit:", id)
 	for {
 		select {
 		case <-dh.ctx.Done():
+			dh.close()
 			utils.LogInst().Infof("======>>> timer cleaner[%d] quit by controller", id)
 			return
 		case tim, ok := <-dh.expire.C:
@@ -116,6 +117,7 @@ func (dh *dnsHandler) close() {
 	for _, conn := range dh.dnsMap {
 		conn.Close()
 	}
+	dh.redirectMap = make(map[string]net.Conn)
 	dh.cLocker.Unlock()
 	dh.pivot.Close()
 }
@@ -156,12 +158,6 @@ func (dh *dnsHandler) dnsWaitResponse() {
 	}()
 
 	for {
-		select {
-		case <-dh.ctx.Done():
-			utils.LogInst().Infof("======>>> dns wait thread exit by app controller......")
-			return
-		default:
-		}
 		n, addr, err := dh.pivot.ReadFromUDP(buf)
 		if err != nil {
 			utils.LogInst().Errorf("======>>>udp pivot thread exit %v", err)
@@ -208,13 +204,6 @@ func (dh *dnsHandler) redirectWaitForRemote(conn core.UDPConn, peerUdp net.Conn,
 	defer dh.clearUdpRelay(id)
 	defer conn.Close()
 	for {
-		select {
-		case <-dh.ctx.Done():
-			utils.LogInst().Infof("======>>> >udp relay thread exit by app controller......")
-			return
-		default:
-
-		}
 		n, err := peerUdp.Read(buf)
 		if err != nil {
 			utils.LogInst().Warnf("======>>>udp relay app<------target err:=>%s", err.Error())
