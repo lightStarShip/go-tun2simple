@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
@@ -10,9 +11,12 @@ import (
 )
 
 func newStackV1() SimpleStack {
+	ctx, c := context.WithCancel(context.Background())
 
 	s := &stackV1{
 		lwipStack: core.Inst(),
+		ctx:       ctx,
+		cancel:    c,
 	}
 	return s
 }
@@ -24,13 +28,14 @@ type stackV1 struct {
 	aesKey    []byte
 	minerAddr string
 	mtu       int
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	core.RegisterOutputFn(func(data []byte) (int, error) {
 		return dev.WriteToTun(data)
 	})
-
 	s1.connSaver = func(fd uintptr) {
 		dev.SafeConn(int32(fd))
 	}
@@ -52,7 +57,7 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 
 	core.RegisterTCPConnHandler(s1)
 
-	dns, err := newUdpHandler(s1.connSaver)
+	dns, err := newUdpHandler(s1.connSaver, s1.ctx)
 	if err != nil {
 		return err
 	}
@@ -64,6 +69,13 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	mustHits := dev.LoadMustHitIps()
 	IPRuleInst().LoadMustHits(mustHits)
 	return nil
+}
+
+func (s1 *stackV1) DestroyStack() {
+	if s1.cancel != nil {
+		s1.cancel()
+	}
+	RInst().Close()
 }
 
 func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {

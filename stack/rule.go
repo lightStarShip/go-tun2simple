@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"context"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"golang.org/x/net/dns/dnsmessage"
 	"net"
@@ -30,6 +31,8 @@ type Rule struct {
 	msgChan chan *dnsmessage.Message
 	matcher Regexps
 	ips     IPCache
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 func RInst() *Rule {
@@ -41,9 +44,12 @@ func RInst() *Rule {
 }
 
 func newRule() *Rule {
+	ctx, c := context.WithCancel(context.Background())
 	r := &Rule{
 		msgChan: make(chan *dnsmessage.Message, 1024),
 		ips:     make(IPCache),
+		ctx:     ctx,
+		cancel:  c,
 	}
 	go r.dnsProc()
 	return r
@@ -59,6 +65,12 @@ func (r *Rule) isMatched(s string) bool {
 	return false
 }
 
+func (r *Rule) Close() {
+	if r.cancel != nil {
+		r.cancel()
+	}
+}
+
 func (r *Rule) NeedProxy(ip string) string {
 	s, ok := r.ips[ip]
 	if !ok {
@@ -71,6 +83,9 @@ func (r *Rule) dnsProc() {
 	utils.LogInst().Infof("======>>> rule manager start to work")
 	for {
 		select {
+		case <-r.ctx.Done():
+			utils.LogInst().Infof("======>>> rule manager exit by controller")
+			return
 		case msg := <-r.msgChan:
 			utils.LogInst().Debugf("======>>>dns[%d] answers:%v :=>", msg.ID, msg.Answers)
 			var matchedDomain = ""

@@ -1,6 +1,7 @@
 package stack
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"github.com/lightStarShip/go-tun2simple/core"
@@ -28,12 +29,14 @@ type dnsHandler struct {
 	dnsMap      map[uint16]*dnsConn
 	redirectMap map[string]net.Conn
 	expire      *time.Ticker
+	ctx         context.Context
 }
 
-func newUdpHandler(saver ConnProtector) (core.UDPConnHandler, error) {
+func newUdpHandler(saver ConnProtector, ctx context.Context) (core.UDPConnHandler, error) {
 
 	handler := &dnsHandler{
 		saver:       saver,
+		ctx:         ctx,
 		dnsMap:      make(map[uint16]*dnsConn),
 		redirectMap: make(map[string]net.Conn),
 		expire:      time.NewTicker(ExpireTime),
@@ -54,17 +57,21 @@ func udpID(src, dst string) string {
 func (dh *dnsHandler) expireConn() {
 	id := utils.GetGID()
 	utils.LogInst().Infof("======>>> timer cleaner[%d] start success:", id)
+	defer utils.LogInst().Infof("======>>> timer cleaner[%d] quit:", id)
 	for {
 		select {
-		case time, ok := <-dh.expire.C:
+		case <-dh.ctx.Done():
+			utils.LogInst().Infof("======>>> timer cleaner[%d] quit by controller", id)
+			return
+		case tim, ok := <-dh.expire.C:
 			if !ok {
 				utils.LogInst().Warnf("======>>> timer cleaner[%d] exit", id)
 				return
 			}
-			utils.LogInst().Infof("======>>> timer cleaner[%d] start[%s]:=>", id, time.String())
+			utils.LogInst().Infof("======>>> timer cleaner[%d] start[%s]:=>", id, tim.String())
 			toDelete := make([]uint16, 0)
 			for idx, conn := range dh.dnsMap {
-				if time.Sub(conn.updateTime) <= ExpireTime {
+				if tim.Sub(conn.updateTime) <= ExpireTime {
 					utils.LogInst().Debugf("======>>> dns[%d] still ok:=>", idx)
 					continue
 				}
@@ -149,6 +156,12 @@ func (dh *dnsHandler) dnsWaitResponse() {
 	}()
 
 	for {
+		select {
+		case <-dh.ctx.Done():
+			utils.LogInst().Infof("======>>> dns wait thread exit by app controller......")
+			return
+		default:
+		}
 		n, addr, err := dh.pivot.ReadFromUDP(buf)
 		if err != nil {
 			utils.LogInst().Errorf("======>>>udp pivot thread exit %v", err)
@@ -195,6 +208,13 @@ func (dh *dnsHandler) redirectWaitForRemote(conn core.UDPConn, peerUdp net.Conn,
 	defer dh.clearUdpRelay(id)
 	defer conn.Close()
 	for {
+		select {
+		case <-dh.ctx.Done():
+			utils.LogInst().Infof("======>>> >udp relay thread exit by app controller......")
+			return
+		default:
+
+		}
 		n, err := peerUdp.Read(buf)
 		if err != nil {
 			utils.LogInst().Warnf("======>>>udp relay app<------target err:=>%s", err.Error())

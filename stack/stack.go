@@ -32,6 +32,7 @@ type Wallet interface {
 type SimpleStack interface {
 	SetupStack(dev TunDev, w Wallet) error
 	WriteToStack(p []byte) (n int, err error)
+	DestroyStack()
 }
 
 func Inst() SimpleStack {
