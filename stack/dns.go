@@ -50,10 +50,15 @@ func newUdpHandler(saver ConnProtector) (core.UDPConnHandler, error) {
 func udpID(src, dst string) string {
 	return fmt.Sprintf("%s->%s", src, dst)
 }
+
 func (dh *dnsHandler) expireConn() {
 	for {
 		select {
-		case time := <-dh.expire.C:
+		case time, ok := <-dh.expire.C:
+			if !ok {
+				utils.LogInst().Warnf("======>>> timer cleaner exit")
+				return
+			}
 			utils.LogInst().Infof("======>>> timer[%s] cleaner start:=>", time.String())
 			toDelete := make([]uint16, 0)
 			for idx, conn := range dh.dnsMap {
@@ -104,6 +109,7 @@ func (dh *dnsHandler) close() {
 	}
 	dh.cLocker.Unlock()
 	dh.pivot.Close()
+	dh.expire.Stop()
 }
 
 func (dh *dnsHandler) setupPivot() error {

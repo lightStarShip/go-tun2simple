@@ -107,7 +107,7 @@ func TestIPRange2(t *testing.T) {
 	*/
 }
 
-//go test -run TestIPRange1 --uid="BD"
+// go test -run TestIPRange1 --uid="BD"
 func TestIPRange1(t *testing.T) {
 	resp, err := http.Get("http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest")
 	if err != nil {
@@ -170,6 +170,17 @@ func TestIPRange3(t *testing.T) {
 	fmt.Println(getPowerOfInt(64))
 	fmt.Println(getPowerOfInt(1024))
 	fmt.Println(getPowerOfInt(65536))
+}
+
+func TestNilChan(t *testing.T) {
+	sig := make(chan struct{}, 1)
+
+	//_, ok := <-sig
+	//fmt.Println("ok=", ok)
+
+	close(sig)
+	_, ok := <-sig
+	fmt.Println("ok=", ok)
 }
 
 /*
