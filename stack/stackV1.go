@@ -119,8 +119,12 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 			return err
 		}
 
-		go s1.upStream(true, conn, tarConn)
-		go s1.downStream(true, conn, tarConn)
+		//go s1.upStream(true, conn, tarConn)
+		//go s1.downStream(true, conn, tarConn)
+
+		go s1.relay(conn, tarConn)
+		go s1.relay(tarConn, conn)
+
 		return nil
 	}
 
@@ -131,10 +135,11 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 		return err
 	}
 	utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
+	//
+	//go s1.upStream(false, conn, targetConn)
+	//go s1.downStream(false, conn, targetConn)
 
-	go s1.upStream(false, conn, targetConn)
-	go s1.downStream(false, conn, targetConn)
-	//go s1.relay(conn, targetConn)
-	//go s1.relay(targetConn, conn)
+	go s1.relay(conn, targetConn)
+	go s1.relay(targetConn, conn)
 	return nil
 }
