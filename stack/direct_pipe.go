@@ -31,7 +31,7 @@ func (s1 *stackV1) relay(src, dst net.Conn) {
 		dst.RemoteAddr().String())
 }
 
-func (s1 *stackV1) upStream(appConn, proxyConn net.Conn) {
+func (s1 *stackV1) upStream(isProxy bool, appConn, proxyConn net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
 	defer appConn.Close()
@@ -39,22 +39,22 @@ func (s1 *stackV1) upStream(appConn, proxyConn net.Conn) {
 		no, err := appConn.Read(buf)
 		if no == 0 {
 			if err != io.EOF {
-				utils.LogInst().Warnf("======>>>read:app---->proxy err=>%s left:%d", err, no)
+				utils.LogInst().Warnf("======>>>[proxy=%t]read:app---->proxy err=>%s left:%d", isProxy, err, no)
 			} else {
-				utils.LogInst().Debugf("======>>>read:app---->proxy EOF")
+				utils.LogInst().Debugf("======>>>[proxy=%t]read:app---->proxy EOF", isProxy)
 			}
 			return
 		}
 		_, err = proxyConn.Write(buf[:no])
 		if err != nil {
-			utils.LogInst().Warnf("======>>>write: app---->proxy err=>%s", err)
+			utils.LogInst().Warnf("======>>>[proxy=%t]write: app---->proxy err=>%s", isProxy, err)
 			return
 		}
-		utils.LogInst().Debugf("======>>>upStream: app---->proxy data:%d ", no)
+		utils.LogInst().Debugf("======>>>[proxy=%t]upStream: app---->proxy data:%d ", isProxy, no)
 	}
 }
 
-func (s1 *stackV1) downStream(appConn, proxyConn net.Conn) {
+func (s1 *stackV1) downStream(isProxy bool, appConn, proxyConn net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
 	defer proxyConn.Close()
@@ -62,9 +62,9 @@ func (s1 *stackV1) downStream(appConn, proxyConn net.Conn) {
 		no, err := proxyConn.Read(buf)
 		if no == 0 {
 			if err != io.EOF {
-				utils.LogInst().Warnf("======>>>read: app<----proxy err=>%s", err)
+				utils.LogInst().Warnf("======>>>[proxy=%t]read: app<----proxy err=>%s", isProxy, err)
 			} else {
-				utils.LogInst().Debugf("======>>>read: app<----proxy EOF ")
+				utils.LogInst().Debugf("======>>>[proxy=%t]read: app<----proxy EOF ", isProxy)
 			}
 			_ = appConn.SetDeadline(time.Now().Add(time.Second * 5))
 			return
@@ -72,10 +72,10 @@ func (s1 *stackV1) downStream(appConn, proxyConn net.Conn) {
 
 		writeNo, err := appConn.Write(buf[:no])
 		if err != nil {
-			utils.LogInst().Warnf("======>>>write app<----proxy err:%s left=%d", err, no)
+			utils.LogInst().Warnf("======>>>[proxy=%t]write app<----proxy err:%s left=%d", isProxy, err, no)
 			break
 		}
 
-		utils.LogInst().Debugf("======>>>read: app<----proxy data:%d written:%d", no, writeNo)
+		utils.LogInst().Debugf("======>>>[proxy=%t]read: app<----proxy data:%d written:%d", isProxy, no, writeNo)
 	}
 }
