@@ -8,7 +8,6 @@ import (
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"github.com/redeslab/go-simple/account"
 	"net"
-	"os"
 )
 
 func newStackV1() SimpleStack {
@@ -84,7 +83,6 @@ func (s1 *stackV1) DestroyStack() {
 	}
 
 	RInst().Close()
-	os.Exit(0)
 }
 
 func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {

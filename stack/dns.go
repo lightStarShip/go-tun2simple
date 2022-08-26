@@ -66,7 +66,7 @@ func (dh *dnsHandler) expireConn() {
 			return
 		case tim, ok := <-dh.expire.C:
 			if !ok {
-				utils.LogInst().Warnf("======>>> timer cleaner[%d] exit", id)
+				utils.LogInst().Warnf("======>>> timer cleaner[%d] timer is stop", id)
 				return
 			}
 			utils.LogInst().Infof("======>>> timer cleaner[%d] start[%s]:=>", id, tim.String())
@@ -119,6 +119,7 @@ func (dh *dnsHandler) close() {
 	for _, conn := range dh.dnsMap {
 		conn.Close()
 	}
+	dh.dnsMap = make(map[uint16]*dnsConn)
 	dh.cLocker.Unlock()
 
 	dh.rLocker.Lock()
@@ -126,6 +127,7 @@ func (dh *dnsHandler) close() {
 	dh.rLocker.Unlock()
 
 	dh.pivot.Close()
+	dh.expire.Stop()
 }
 
 func (dh *dnsHandler) setupPivot() error {
