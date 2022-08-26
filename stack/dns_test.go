@@ -10,6 +10,7 @@ import (
 	"golang.org/x/net/dns/dnsmessage"
 	"net"
 	"testing"
+	"time"
 )
 
 var p1 = "450000500019000040116e7b010101010a0000080035cbd8003cffdc6bba01000001000000000000136f617574686163636f756e746d616e616765720a676f6f676c656170697303636f6d0000010001"
@@ -131,4 +132,12 @@ func TestGoogleDns(t *testing.T) {
 		t.Fatal(err)
 	}
 	fmt.Println(msg2.GoString())
+}
+
+func TestGoID(t *testing.T) {
+	fmt.Println("main:", utils.GetGID())
+	go func() {
+		fmt.Println("sub:", utils.GetGID())
+	}()
+	time.Sleep(time.Second * 3)
 }

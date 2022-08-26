@@ -52,14 +52,16 @@ func udpID(src, dst string) string {
 }
 
 func (dh *dnsHandler) expireConn() {
+	id := utils.GetGID()
+	utils.LogInst().Infof("======>>> timer cleaner[%d] start success:", id)
 	for {
 		select {
 		case time, ok := <-dh.expire.C:
 			if !ok {
-				utils.LogInst().Warnf("======>>> timer cleaner exit")
+				utils.LogInst().Warnf("======>>> timer cleaner[%d] exit", id)
 				return
 			}
-			utils.LogInst().Infof("======>>> timer[%s] cleaner start:=>", time.String())
+			utils.LogInst().Infof("======>>> timer cleaner[%d] start[%s]:=>", id, time.String())
 			toDelete := make([]uint16, 0)
 			for idx, conn := range dh.dnsMap {
 				if time.Sub(conn.updateTime) <= ExpireTime {
@@ -109,7 +111,6 @@ func (dh *dnsHandler) close() {
 	}
 	dh.cLocker.Unlock()
 	dh.pivot.Close()
-	dh.expire.Stop()
 }
 
 func (dh *dnsHandler) setupPivot() error {
