@@ -31,7 +31,7 @@ func TestRuleMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	RInst().Setup(string(bts))
-	if RInst().isMatched(uid) {
+	if RInst().IsMatched(uid) {
 		utils.LogInst().Infof("======>>>domain[%s] matched", uid)
 	}
 }

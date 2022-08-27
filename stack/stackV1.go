@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/lightStarShip/go-tun2simple/core"
 	"github.com/lightStarShip/go-tun2simple/utils"
 	"github.com/redeslab/go-simple/account"
@@ -11,7 +13,9 @@ import (
 )
 
 func newStackV1() SimpleStack {
-	return &stackV1{}
+	return &stackV1{
+		counter: make(map[int]int),
+	}
 }
 
 type stackV1 struct {
@@ -23,6 +27,7 @@ type stackV1 struct {
 	mtu       int
 	ctx       context.Context
 	cancel    context.CancelFunc
+	counter   map[int]int
 }
 
 func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
@@ -85,8 +90,35 @@ func (s1 *stackV1) DestroyStack() {
 	RInst().Close()
 }
 
-func (s1 *stackV1) WriteToStack(p []byte) (n int, err error) {
-	return s1.lwipStack.Write(p)
+func (s1 *stackV1) WriteToStack(buf []byte) (n int, err error) {
+
+	var ip4 *layers.IPv4 = nil
+	packet := gopacket.NewPacket(buf, layers.LayerTypeIPv4, gopacket.Default)
+
+	if ip4Layer := packet.Layer(layers.LayerTypeIPv4); ip4Layer != nil {
+		ip4 = ip4Layer.(*layers.IPv4)
+	} else {
+		utils.LogInst().Infof("======>>> Unsupported network layer: \n%s\n", packet.Dump())
+		return
+	}
+
+	var tcp *layers.TCP = nil
+	if tcpLayer := packet.Layer(layers.LayerTypeTCP); tcpLayer != nil {
+		tcp = tcpLayer.(*layers.TCP)
+		srcPort := int(tcp.SrcPort)
+		tcpLen := len(tcp.Payload)
+		s1.counter[srcPort]++
+		if (s1.counter[srcPort] == 3 || s1.counter[srcPort] == 4) && tcpLen > 10 { //
+			host := utils.ParseHost(tcp.Payload)
+			if len(host) > 0 {
+				utils.LogInst().Infof("======>>> Found[%d] host[%s] success for[%d->%s]",
+					s1.counter[srcPort], host, srcPort, ip4.DstIP.String())
+				RInst().DirectIPAndHOst(host, ip4.DstIP.String())
+			}
+		}
+	}
+
+	return s1.lwipStack.Write(buf)
 }
 
 func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {

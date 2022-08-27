@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+const (
+	MaxDnsQueryCnt = 1 << 11
+)
+
 var (
 	_rOnce sync.Once
 	_rInst *Rule
@@ -46,7 +50,7 @@ func RInst() *Rule {
 func newRule() *Rule {
 	ctx, c := context.WithCancel(context.Background())
 	r := &Rule{
-		msgChan: make(chan *dnsmessage.Message, 1024),
+		msgChan: make(chan *dnsmessage.Message, MaxDnsQueryCnt),
 		ips:     make(IPCache),
 		ctx:     ctx,
 		cancel:  c,
@@ -55,7 +59,7 @@ func newRule() *Rule {
 	return r
 }
 
-func (r *Rule) isMatched(s string) bool {
+func (r *Rule) IsMatched(s string) bool {
 	for _, re := range r.matcher {
 		if ok, err := regexp.MatchString(re, s); ok && err == nil {
 			utils.LogInst().Infof("======>>>******matched by [%s] ", re)
@@ -94,7 +98,7 @@ func (r *Rule) dnsProc() {
 				utils.LogInst().Debugf("======>>>dns[%d] question[%d]:%s typ:%s",
 					msg.ID, i, domain, typ)
 
-				if r.isMatched(domain) {
+				if r.IsMatched(domain) {
 					matchedDomain = domain
 					utils.LogInst().Infof("======>>>[%d]******domain[%s]******matched", msg.ID, domain)
 					break
@@ -126,6 +130,15 @@ func (r *Rule) Setup(s string) {
 	r.matcher = parseRule(s)
 }
 
+func (r *Rule) DirectIPAndHOst(host, ip string) {
+	if !r.IsMatched(host) {
+		utils.LogInst().Infof("======>>> DirectIPAndHOst [%s]++++++domain[%s] ++++++not matched", ip, host)
+		return
+	}
+	utils.LogInst().Infof("======>>>DirectIPAndHOst [%s]******domain[%s]******matched", ip, host)
+	r.ips[ip] = host
+}
+
 func (r *Rule) ParseDns(msg *dnsmessage.Message) {
 	utils.LogInst().Debugf("======>>>dns[%d] answers:%v :=>", msg.ID, msg.Answers)
 	var matchedDomain = ""
@@ -134,7 +147,7 @@ func (r *Rule) ParseDns(msg *dnsmessage.Message) {
 		utils.LogInst().Debugf("======>>>dns[%d] question[%d]:%s typ:%s",
 			msg.ID, i, domain, typ)
 
-		if r.isMatched(domain) {
+		if r.IsMatched(domain) {
 			matchedDomain = domain
 			utils.LogInst().Infof("======>>>[%d]******domain[%s]******matched", msg.ID, domain)
 			break
