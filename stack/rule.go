@@ -32,11 +32,12 @@ func (ic *IPCache) String() string {
 }
 
 type Rule struct {
-	msgChan chan *dnsmessage.Message
-	matcher Regexps
-	ips     IPCache
-	ctx     context.Context
-	cancel  context.CancelFunc
+	msgChan    chan *dnsmessage.Message
+	matcher    Regexps
+	ipToDomain IPCache
+	ipLocker   sync.RWMutex
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 func RInst() *Rule {
@@ -50,10 +51,10 @@ func RInst() *Rule {
 func newRule() *Rule {
 	ctx, c := context.WithCancel(context.Background())
 	r := &Rule{
-		msgChan: make(chan *dnsmessage.Message, MaxDnsQueryCnt),
-		ips:     make(IPCache),
-		ctx:     ctx,
-		cancel:  c,
+		msgChan:    make(chan *dnsmessage.Message, MaxDnsQueryCnt),
+		ipToDomain: make(IPCache),
+		ctx:        ctx,
+		cancel:     c,
 	}
 	go r.dnsProc()
 	return r
@@ -76,7 +77,9 @@ func (r *Rule) Close() {
 }
 
 func (r *Rule) NeedProxy(ip string) string {
-	s, ok := r.ips[ip]
+	r.ipLocker.RLock()
+	defer r.ipLocker.RUnlock()
+	s, ok := r.ipToDomain[ip]
 	if !ok {
 		return ""
 	}
@@ -120,7 +123,9 @@ func (r *Rule) dnsProc() {
 				}
 				ip := net.IPv4(ar.A[0], ar.A[1], ar.A[2], ar.A[3]).String()
 				utils.LogInst().Infof("======>>>>******[%d]new ip[%s] cached:", msg.ID, ip)
-				r.ips[ip] = matchedDomain
+				r.ipLocker.Lock()
+				r.ipToDomain[ip] = matchedDomain
+				r.ipLocker.Unlock()
 			}
 		}
 	}
@@ -131,12 +136,21 @@ func (r *Rule) Setup(s string) {
 }
 
 func (r *Rule) DirectIPAndHOst(host, ip string) {
+	r.ipLocker.RLock()
+	if _, ok := r.ipToDomain[ip]; ok {
+		r.ipLocker.RUnlock()
+		utils.LogInst().Infof("======>>>DirectIPAndHOst [%s]******domain[%s]******cached", ip, host)
+		return
+	}
+	r.ipLocker.RUnlock()
 	if !r.IsMatched(host) {
 		utils.LogInst().Infof("======>>> DirectIPAndHOst [%s]++++++domain[%s] ++++++not matched", ip, host)
 		return
 	}
 	utils.LogInst().Infof("======>>>DirectIPAndHOst [%s]******domain[%s]******matched", ip, host)
-	r.ips[ip] = host
+	r.ipLocker.Lock()
+	r.ipToDomain[ip] = host
+	r.ipLocker.Unlock()
 }
 
 func (r *Rule) ParseDns(msg *dnsmessage.Message) {
@@ -169,7 +183,9 @@ func (r *Rule) ParseDns(msg *dnsmessage.Message) {
 		}
 		ip := net.IPv4(ar.A[0], ar.A[1], ar.A[2], ar.A[3]).String()
 		utils.LogInst().Infof("======>>>>******[%d]new ip[%s] cached:", msg.ID, ip)
-		r.ips[ip] = matchedDomain
+		r.ipLocker.Lock()
+		r.ipToDomain[ip] = matchedDomain
+		r.ipLocker.Unlock()
 	}
 }
 

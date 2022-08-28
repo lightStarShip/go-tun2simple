@@ -113,7 +113,7 @@ func (s1 *stackV1) WriteToStack(buf []byte) (n int, err error) {
 			if len(host) > 0 {
 				utils.LogInst().Infof("======>>> Found[%d] host[%s] success for[%d->%s]",
 					s1.counter[srcPort], host, srcPort, ip4.DstIP.String())
-				RInst().DirectIPAndHOst(host, ip4.DstIP.String())
+				RInst().DirectIPAndHOst(host+".", ip4.DstIP.String())
 			}
 		}
 	}
