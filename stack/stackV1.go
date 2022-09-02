@@ -60,11 +60,13 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	ctx, c := context.WithCancel(context.Background())
 	s1.ctx = ctx
 	s1.cancel = c
-	dns, err := newUdpHandler(s1.connSaver, s1.ctx)
-	if err != nil {
-		return err
-	}
-	core.RegisterUDPConnHandler(dns)
+	//dns, err := newUdpHandler(s1.connSaver, s1.ctx)
+	//if err != nil {
+	//	return err
+	//}
+	//core.RegisterUDPConnHandler(dns)
+
+	core.RegisterUDPConnHandler(newUdpRelay(s1.connSaver))
 
 	rules := dev.LoadRule()
 	RInst().Setup(rules)
@@ -142,12 +144,12 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	}
 
 	if matched {
-		utils.LogInst().Infof("======>>> target is matched target:[%s=>%s]", target.String(), targetMatchedNetAddr)
+		utils.LogInst().Infof("======>>>[TCP] target is matched target:[%s=>%s]", target.String(), targetMatchedNetAddr)
 
 		tarConn, err := s1.setupSimpleConn(targetMatchedNetAddr)
 		if err != nil {
 			_ = conn.Close()
-			utils.LogInst().Errorf("======>>>proxy sync target[%s=>%s] err:%v", target.String(), targetMatchedNetAddr, err)
+			utils.LogInst().Errorf("======>>>[TCP]proxy sync target[%s=>%s] err:%v", target.String(), targetMatchedNetAddr, err)
 			return err
 		}
 
@@ -163,10 +165,10 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 	targetConn, err := SafeConn("tcp", target.String(), s1.connSaver, DialTimeOut)
 	if err != nil {
 		_ = conn.Close()
-		utils.LogInst().Errorf("======>>>tcp dial[%s] err:%v", target.String(), err)
+		utils.LogInst().Errorf("======>>>[TCP] dial[%s] err:%v", target.String(), err)
 		return err
 	}
-	utils.LogInst().Infof("======>>> direct relay for target:%s", target.String())
+	utils.LogInst().Infof("======>>>[TCP] direct relay for target:%s", target.String())
 	//
 	//go s1.upStream(false, conn, targetConn)
 	//go s1.downStream(false, conn, targetConn)
