@@ -47,9 +47,6 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	s1.aesKey = key
 	s1.minerAddr = w.MinerNetAddr()
 	s1.mtu = dev.MTU()
-	if s1.mtu < MinMtuVal {
-		return fmt.Errorf("======>>> too small mtu")
-	}
 
 	utils.LogInst().Infof("======>>> stack param: sid:%s mid:%s mtu:%d", s1.selfId, s1.minerAddr, s1.mtu)
 
