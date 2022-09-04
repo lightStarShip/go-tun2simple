@@ -57,11 +57,6 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	ctx, c := context.WithCancel(context.Background())
 	s1.ctx = ctx
 	s1.cancel = c
-	//dns, err := newUdpHandler(s1.connSaver, s1.ctx)
-	//if err != nil {
-	//	return err
-	//}
-	//core.RegisterUDPConnHandler(dns)
 
 	core.RegisterUDPConnHandler(newUdpRelay(s1.connSaver))
 
