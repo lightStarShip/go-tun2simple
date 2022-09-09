@@ -12,6 +12,33 @@ const (
 	MinMtuVal   = 1 << 12
 )
 
+func (s1 *stackV1) relayForProxy(src, dst net.Conn) {
+	buf := utils.NewBytes(s1.mtu)
+	defer utils.FreeBytes(buf)
+
+	for {
+		n, err := src.Read(buf)
+		if err != nil {
+			utils.LogInst().Warnf("======>>> read from source err:%s", err.Error())
+			break
+		}
+		_, err = dst.Write(buf[:n])
+		if err != nil {
+			utils.LogInst().Warnf("======>>> write to dst err:%s", err.Error())
+			break
+		}
+	}
+
+	defer src.Close()
+	defer dst.Close()
+
+	utils.LogInst().Debugf("======>>>proxy relay finished:[%s--->%s]===>[%s--->%s]",
+		src.LocalAddr().String(),
+		src.RemoteAddr().String(),
+		dst.LocalAddr().String(),
+		dst.RemoteAddr().String())
+}
+
 func (s1 *stackV1) relay(src, dst net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
 	defer utils.FreeBytes(buf)
@@ -20,11 +47,11 @@ func (s1 *stackV1) relay(src, dst net.Conn) {
 
 	_, err := io.CopyBuffer(src, dst, buf)
 	if err != nil {
-		utils.LogInst().Warnf("======>>> relay finalized by err:%s", err.Error())
+		utils.LogInst().Warnf("======>>> direct relay finalized by err:%s", err.Error())
 		return
 	}
 
-	utils.LogInst().Debugf("======>>> relay finished:[%s--->%s]===>[%s--->%s]",
+	utils.LogInst().Debugf("======>>>  direct relay finished:[%s--->%s]===>[%s--->%s]",
 		src.LocalAddr().String(),
 		src.RemoteAddr().String(),
 		dst.LocalAddr().String(),

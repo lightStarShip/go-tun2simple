@@ -107,7 +107,7 @@ func (s1 *stackV1) WriteToStack(buf []byte) (n int, err error) {
 			if len(host) > 0 {
 				utils.LogInst().Infof("======>>> Found[%d] host[%s] success for[%d->%s]",
 					s1.counter[srcPort], host, srcPort, ip4.DstIP.String())
-				RInst().DirectIPAndHOst(host+".", ip4.DstIP.String())
+				RInst().DirectIPAndHOst("."+host+".", ip4.DstIP.String())
 			}
 		}
 	}
@@ -148,8 +148,8 @@ func (s1 *stackV1) Handle(conn net.Conn, target *net.TCPAddr) error {
 		//go s1.upStream(true, conn, tarConn)
 		//go s1.downStream(true, conn, tarConn)
 
-		go s1.relay(conn, tarConn)
-		go s1.relay(tarConn, conn)
+		go s1.relayForProxy(conn, tarConn)
+		go s1.relayForProxy(tarConn, conn)
 
 		return nil
 	}
