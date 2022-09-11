@@ -12,32 +12,31 @@ const (
 	MinMtuVal   = 1 << 12
 )
 
-func (s1 *stackV1) relayForProxy(src, dst net.Conn) {
-	buf := utils.NewBytes(s1.mtu)
-	defer utils.FreeBytes(buf)
-
-	for {
-		n, err := src.Read(buf)
-		if err != nil {
-			utils.LogInst().Warnf("======>>> read from source err:%s", err.Error())
-			break
-		}
-		_, err = dst.Write(buf[:n])
-		if err != nil {
-			utils.LogInst().Warnf("======>>> write to dst err:%s", err.Error())
-			break
-		}
-	}
-
-	defer src.Close()
-	defer dst.Close()
-
-	utils.LogInst().Debugf("======>>>proxy relay finished:[%s--->%s]===>[%s--->%s]",
-		src.LocalAddr().String(),
-		src.RemoteAddr().String(),
-		dst.LocalAddr().String(),
-		dst.RemoteAddr().String())
-}
+//func (s1 *stackV1) relayForProxy(src, dst net.Conn) {
+//	buf := utils.NewBytes(s1.mtu)
+//	defer utils.FreeBytes(buf)
+//	for {
+//		n, err := src.Read(buf)
+//		if err != nil {
+//			utils.LogInst().Warnf("======>>> read from source err:%s", err.Error())
+//			break
+//		}
+//		n, err = dst.Write(buf[:n])
+//		if err != nil {
+//			utils.LogInst().Warnf("======>>> write to dst err:%s", err.Error())
+//			break
+//		}
+//	}
+//
+//	utils.LogInst().Debugf("======>>>proxy relay finished:[%s--->%s]===>[%s--->%s]",
+//		src.LocalAddr().String(),
+//		src.RemoteAddr().String(),
+//		dst.LocalAddr().String(),
+//		dst.RemoteAddr().String())
+//
+//	src.Close()
+//	dst.Close()
+//}
 
 func (s1 *stackV1) relay(src, dst net.Conn) {
 	buf := utils.NewBytes(s1.mtu)
