@@ -33,6 +33,7 @@ type SimpleStack interface {
 	SetupStack(dev TunDev, w Wallet) error
 	WriteToStack(p []byte) (n int, err error)
 	DestroyStack()
+	SetGlobal(global bool)
 }
 
 func Inst() SimpleStack {

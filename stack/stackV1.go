@@ -72,6 +72,11 @@ func (s1 *stackV1) SetupStack(dev TunDev, w Wallet) error {
 	return nil
 }
 
+func (s1 *stackV1) SetGlobal(global bool) {
+	IPRuleInst().SetGlobal(global)
+	utils.LogInst().Debugf("======>>> change global status: network layer: %t", global)
+}
+
 func (s1 *stackV1) DestroyStack() {
 	if s1.cancel != nil {
 		s1.cancel()
@@ -107,7 +112,7 @@ func (s1 *stackV1) WriteToStack(buf []byte) (n int, err error) {
 			if len(host) > 0 {
 				utils.LogInst().Infof("======>>> Found[%d] host[%s] success for[%d->%s]",
 					s1.counter[srcPort], host, srcPort, ip4.DstIP.String())
-				RInst().DirectIPAndHOst(host+".", ip4.DstIP.String())
+				RInst().DirectIPAndHost(host+".", ip4.DstIP.String())
 			}
 		}
 	}

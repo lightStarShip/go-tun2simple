@@ -39,6 +39,10 @@ func InitEx(exi ExtensionI, logLevel int8) error {
 	return stack.Inst().SetupStack(exi, exi)
 }
 
+func SetGlobal(global bool) {
+	stack.Inst().SetGlobal(global)
+}
+
 func WritePackets(data []byte) (int, error) {
 	return stack.Inst().WriteToStack(data)
 }

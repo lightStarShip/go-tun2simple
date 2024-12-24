@@ -135,19 +135,19 @@ func (r *Rule) Setup(s string) {
 	r.matcher = parseRule(s)
 }
 
-func (r *Rule) DirectIPAndHOst(host, ip string) {
+func (r *Rule) DirectIPAndHost(host, ip string) {
 	r.ipLocker.RLock()
 	if _, ok := r.ipToDomain[ip]; ok {
 		r.ipLocker.RUnlock()
-		utils.LogInst().Infof("======>>>DirectIPAndHOst [%s]******domain[%s]******cached", ip, host)
+		utils.LogInst().Infof("======>>>DirectIPAndHost [%s]******domain[%s]******cached", ip, host)
 		return
 	}
 	r.ipLocker.RUnlock()
 	if !r.IsMatched(host) {
-		utils.LogInst().Infof("======>>> DirectIPAndHOst [%s]++++++domain[%s] ++++++not matched", ip, host)
+		utils.LogInst().Infof("======>>> DirectIPAndHost [%s]++++++domain[%s] ++++++not matched", ip, host)
 		return
 	}
-	utils.LogInst().Infof("======>>>DirectIPAndHOst [%s]******domain[%s]******matched", ip, host)
+	utils.LogInst().Infof("======>>>DirectIPAndHost [%s]******domain[%s]******matched", ip, host)
 	r.ipLocker.Lock()
 	r.ipToDomain[ip] = host
 	r.ipLocker.Unlock()
